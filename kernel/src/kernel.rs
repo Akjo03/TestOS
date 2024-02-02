@@ -1,3 +1,4 @@
+use crate::drivers::display::DisplayDriverType;
 use crate::managers::display::DisplayManager;
 
 pub struct Kernel<'a> {
@@ -8,7 +9,13 @@ pub struct Kernel<'a> {
         Self { display_manager, running: true }
     }
 
-    pub fn init(&mut self) {}
+    pub fn init(&mut self) {
+        match self.display_manager.get_driver() {
+            DisplayDriverType::Text(_driver) => {},
+            DisplayDriverType::Graphics(_driver) => {}
+            _ => panic!("Unsupported display driver type!")
+        }
+    }
 
     pub fn tick(&mut self) {
         self.running = false;
