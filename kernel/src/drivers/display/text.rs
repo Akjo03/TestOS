@@ -11,19 +11,7 @@ struct FormattedTextSegment {
     text_color: Color,
     background_color: Option<Color>,
     underline: bool,
-    strikethrough: bool,
-    position: Position
-} impl FormattedTextSegment {
-    fn new(
-        text: Vec<u8>,
-        text_color: Color,
-        background_color: Option<Color>,
-        underline: bool,
-        strikethrough: bool,
-        position: Position
-    ) -> Self { Self {
-        text, text_color, background_color, underline, strikethrough, position
-    } }
+    strikethrough: bool
 }
 
 pub struct TextDisplayDriverArgs {
@@ -43,8 +31,7 @@ pub struct TextDisplayDriverArgs {
 pub struct TextDisplayDriver<'a> {
     display: Option<Rc<RefCell<Display<'a>>>>,
     text_buffer: Option<Vec<FormattedTextSegment>>,
-    font: Option<Rc<RefCell<Fonts>>>,
-    cursor: Option<Position>
+    font: Option<Rc<RefCell<Fonts>>>
 } #[allow(dead_code)] impl TextDisplayDriver<'_> {
     pub fn init(&mut self, args: &mut TextDisplayDriverArgs) {
         self.font = Some(args.font.clone());
@@ -52,50 +39,29 @@ pub struct TextDisplayDriver<'a> {
         let display_width = args.display_width / font_size.width;
         let display_height = args.display_height / font_size.height;
         self.text_buffer = Some(Vec::with_capacity(display_width * display_height));
-        self.cursor = Some(Position::new(0, 0));
-    }
-
-    pub fn write(
-        &mut self, text: &[u8],
-        text_color: Color, background_color: Option<Color>,
-        underline: bool, strikethrough: bool
-    ) {
-        if let Some(text_buffer) = &mut self.text_buffer {
-            if let Some(cursor) = &mut self.cursor {
-                let text_len = text.len();
-                let text_segment = FormattedTextSegment::new(
-                    text.to_vec(), text_color, background_color,
-                    underline, strikethrough, *cursor
-                );
-
-                text_buffer.push(text_segment);
-
-                let font_size = self.font.as_ref().unwrap().borrow().get_size();
-                cursor.x += text_len * font_size.width;
-            }
-        }
     }
 } impl CommonDisplayDriver for TextDisplayDriver<'_> {
     fn new() -> Self { Self {
         display: None,
         text_buffer: None,
-        font: None,
-        cursor: None
+        font: None
     } }
 
     fn draw_all(&mut self) {
         if let Some(display) = &mut self.display {
-            for text_segment in self.text_buffer.as_ref().unwrap() {
-                if let Ok(text_str) = core::str::from_utf8(&text_segment.text) {
-                    let font = (*self.font.as_ref().unwrap().borrow().deref()).into();
-                    display.borrow_mut().draw_text(
-                        text_str, text_segment.position,
-                        text_segment.text_color, text_segment.background_color,
-                        font, text_segment.underline, text_segment.strikethrough,
-                        TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
-                    );
-                } else { panic!("Failed to convert text buffer to string!"); }
-            }
+            if let Some (text_buffer) = &self.text_buffer.as_ref() {
+                for text_segment in text_buffer.iter() {
+                    if let Ok(text_str) = core::str::from_utf8(&text_segment.text) {
+                        let font = (*self.font.as_ref().unwrap().borrow().deref()).into();
+                        display.borrow_mut().draw_text(
+                            text_str, Position::new(0, 0),
+                            text_segment.text_color, text_segment.background_color,
+                            font, text_segment.underline, text_segment.strikethrough,
+                            TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
+                        );
+                    } else { panic!("Failed to convert text buffer to string!"); }
+                }
+            } else { panic!("Trying to draw uninitialized text buffer!"); }
         } else { panic!("Trying to draw uninitialized display!"); }
     }
 

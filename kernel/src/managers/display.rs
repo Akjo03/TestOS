@@ -5,7 +5,6 @@ use bootloader_api::info::FrameBufferInfo;
 
 use crate::api::display::{Colors, DisplayApi, Fonts};
 use crate::drivers::display::{CommonDisplayDriver, DisplayDriverManager, DisplayDriverType, DummyDisplayDriver};
-use crate::drivers::display::graphics::{GraphicsDisplayDriver, GraphicsDisplayDriverArgs};
 use crate::drivers::display::text::{TextDisplayDriver, TextDisplayDriverArgs};
 use crate::systems::display::Display;
 
@@ -13,8 +12,7 @@ use crate::systems::display::Display;
 pub enum DisplayMode {
     Unknown,
     Dummy,
-    Text(Fonts),
-    Graphics
+    Text(Fonts)
 } impl<'a> DisplayMode {
     fn get_driver(self, info: FrameBufferInfo) -> DisplayDriverType<'a> {
         match self {
@@ -25,10 +23,6 @@ pub enum DisplayMode {
             DisplayMode::Text(font) => DisplayDriverType::Text(
                 TextDisplayDriver::new(),
                 TextDisplayDriverArgs::new(Rc::new(RefCell::new(font)), info.width, info.height)
-            ),
-            DisplayMode::Graphics => DisplayDriverType::Graphics(
-                GraphicsDisplayDriver::new(),
-                GraphicsDisplayDriverArgs::new(info.height, info.stride)
             )
         }
     }

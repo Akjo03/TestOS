@@ -1,4 +1,4 @@
-use crate::api::display::{Colors, Fonts};
+use crate::api::display::Fonts;
 use crate::drivers::display::{CommonDisplayDriver, DisplayDriverType};
 use crate::managers::display::{DisplayManager, DisplayMode};
 
@@ -15,7 +15,6 @@ pub struct Kernel<'a> {
 
         match self.display_manager.get_driver() {
             DisplayDriverType::Text(driver, ..) => {
-                driver.write(b"Welcome to the kernel!", Colors::White.into(), None, true, false);
                 driver.draw_all();
             },
             _ => panic!("Unsupported display driver type!")

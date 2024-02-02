@@ -2,12 +2,10 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 
 use crate::api::display::{Color, DisplayApi, Size};
-use crate::drivers::display::graphics::{GraphicsDisplayDriver, GraphicsDisplayDriverArgs};
 use crate::drivers::display::text::{TextDisplayDriver, TextDisplayDriverArgs};
 use crate::systems::display::Display;
 
 pub mod text;
-pub mod graphics;
 
 pub struct DisplayDriverManager<'a> {
     pub current_driver: DisplayDriverType<'a>
@@ -20,8 +18,6 @@ pub struct DisplayDriverManager<'a> {
         match &mut self.current_driver {
             DisplayDriverType::Text(ref mut driver, ..) => {
                 driver.deactivate();
-            }, DisplayDriverType::Graphics(ref mut driver, ..) => {
-                driver.deactivate();
             }, DisplayDriverType::Dummy(ref mut driver) => {
                 driver.deactivate();
             }, _ => {}
@@ -29,9 +25,6 @@ pub struct DisplayDriverManager<'a> {
         self.current_driver = driver;
         match &mut self.current_driver {
             DisplayDriverType::Text(ref mut driver, args) => {
-                driver.init(args);
-                driver.activate(display);
-            }, DisplayDriverType::Graphics(ref mut driver, args) => {
                 driver.init(args);
                 driver.activate(display);
             }, DisplayDriverType::Dummy(ref mut driver) => {
@@ -50,8 +43,6 @@ pub struct DisplayDriverManager<'a> {
                 driver.clear(color);
             }, DisplayDriverType::Text(ref mut driver, ..) => {
                 driver.clear(color);
-            }, DisplayDriverType::Graphics(ref mut driver, ..) => {
-                driver.clear(color);
             }, _ => {}
         }
     }
@@ -61,8 +52,7 @@ pub struct DisplayDriverManager<'a> {
 pub enum DisplayDriverType<'a> {
     Unknown,
     Dummy(DummyDisplayDriver<'a>),
-    Text(TextDisplayDriver<'a>, TextDisplayDriverArgs),
-    Graphics(GraphicsDisplayDriver<'a>, GraphicsDisplayDriverArgs)
+    Text(TextDisplayDriver<'a>, TextDisplayDriverArgs)
 }
 
 #[allow(unused_variables)]
