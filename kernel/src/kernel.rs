@@ -1,4 +1,4 @@
-use crate::api::display::Fonts;
+use crate::api::display::{Colors, Fonts};
 use crate::drivers::display::{CommonDisplayDriver, DisplayDriverType};
 use crate::managers::display::{DisplayManager, DisplayMode};
 
@@ -11,10 +11,11 @@ pub struct Kernel<'a> {
     }
 
     pub fn init(&mut self) {
-        self.display_manager.set_driver(DisplayMode::Text(Fonts::Font10x20));
+        self.display_manager.set_driver(DisplayMode::Text(Fonts::Font9x18));
 
         match self.display_manager.get_driver() {
             DisplayDriverType::Text(driver, ..) => {
+                driver.write(b"Welcome to the kernel!", Colors::White.into(), None, true, false);
                 driver.draw_all();
             },
             _ => panic!("Unsupported display driver type!")
