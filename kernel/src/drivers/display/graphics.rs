@@ -32,10 +32,19 @@ pub struct GraphicsDisplayDriver<'a> {
         back_buffer: None
     } }
 
+    fn draw_all(&mut self) {
+        if let Some(display) = &mut self.display {
+            let mut display = display.borrow_mut();
+            if let Some(back_buffer) = &self.back_buffer {
+                display.draw_all(back_buffer);
+            } else { panic!("Trying to draw uninitialized back buffer!"); }
+        } else { panic!("Trying to draw uninitialized display!"); }
+    }
+
     fn clear(&mut self, color: Color) {
         if let Some(display) = &mut self.display {
             display.borrow_mut().clear(color);
-        }
+        } else { panic!("Trying to clear uninitialized display!"); }
     }
 
     fn get_size(&self) -> Size {

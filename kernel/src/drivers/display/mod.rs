@@ -73,6 +73,7 @@ trait DisplayDriver<'a> {
 
 pub trait CommonDisplayDriver {
     fn new() -> Self;
+    fn draw_all(&mut self);
     fn clear(&mut self, color: Color);
     fn get_size(&self) -> Size;
 }
@@ -83,6 +84,8 @@ pub struct DummyDisplayDriver<'a> {
     fn new() -> Self { Self {
         display: None
     } }
+
+    fn draw_all(&mut self) {}
 
     fn clear(&mut self, color: Color) {
         if let Some(display) = &mut self.display {

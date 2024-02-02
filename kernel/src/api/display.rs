@@ -183,21 +183,13 @@ pub enum TextLineHeight {
 }
 
 pub trait DisplayApi {
-    fn draw_pixel(&mut self, position: Position, color: Color);
-    fn draw_line(&mut self, start: Position, end: Position, color: Color, stroke_width: u32);
-    fn draw_rectangle(&mut self, position: Position, size: Size, color: Color);
-    fn draw_circle(&mut self, center: Position, radius: u32, color: Color);
-    fn draw_ellipse(&mut self, center: Position, radius_x: u32, radius_y: u32, color: Color);
-    fn draw_arc(&mut self, center: Position, diameter: u32, start_angle: f32, angle_sweep: f32, color: Color, stroke_width: u32);
-    fn draw_triangle(&mut self, point1: Position, point2: Position, point3: Position, color: Color);
-    fn draw_polyline(&mut self, points: &[Position], color: Color, stroke_width: u32);
     fn draw_text(
         &mut self, text: &str, position: Position,
         text_color: Color, background_color: Option<Color>,
         font: MonoFont, underline: bool, strikethrough: bool,
         baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
     );
-    fn draw_image(&mut self, position: Position, size: Size, image: &[u8]);
     fn clear(&mut self, color: Color);
+    fn draw_all(&mut self, buffer: &[u8]);
     fn get_info(&self) -> FrameBufferInfo;
 }
