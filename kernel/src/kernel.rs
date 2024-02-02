@@ -1,5 +1,6 @@
+use crate::api::display::Fonts;
 use crate::drivers::display::DisplayDriverType;
-use crate::managers::display::DisplayManager;
+use crate::managers::display::{DisplayManager, DisplayMode};
 
 pub struct Kernel<'a> {
     display_manager: DisplayManager<'a>,
@@ -10,9 +11,10 @@ pub struct Kernel<'a> {
     }
 
     pub fn init(&mut self) {
+        self.display_manager.set_driver(DisplayMode::Text(Fonts::Font9x18));
+
         match self.display_manager.get_driver() {
             DisplayDriverType::Text(_driver, ..) => {},
-            DisplayDriverType::Graphics(_driver, ..) => {},
             _ => panic!("Unsupported display driver type!")
         }
     }

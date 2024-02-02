@@ -13,7 +13,7 @@ use crate::systems::display::Display;
 pub enum DisplayMode {
     Unknown,
     Dummy,
-    Text(Rc<RefCell<Fonts>>),
+    Text(Fonts),
     Graphics
 } impl<'a> DisplayMode {
     fn get_driver(self, info: FrameBufferInfo) -> DisplayDriverType<'a> {
@@ -24,7 +24,7 @@ pub enum DisplayMode {
             ),
             DisplayMode::Text(font) => DisplayDriverType::Text(
                 TextDisplayDriver::new(),
-                TextDisplayDriverArgs::new(font, info.width, info.height)
+                TextDisplayDriverArgs::new(Rc::new(RefCell::new(font)), info.width, info.height)
             ),
             DisplayMode::Graphics => DisplayDriverType::Graphics(
                 GraphicsDisplayDriver::new(),
