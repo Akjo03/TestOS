@@ -10,7 +10,7 @@ pub mod text;
 pub mod graphics;
 
 pub struct DisplayDriverManager<'a> {
-    pub(crate) current_driver: DisplayDriverType<'a>
+    pub current_driver: DisplayDriverType<'a>
 } #[allow(dead_code)] impl<'a> DisplayDriverManager<'a> {
     pub fn new() -> Self { Self {
         current_driver: DisplayDriverType::Unknown
