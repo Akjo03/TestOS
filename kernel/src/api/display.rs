@@ -1,3 +1,4 @@
+use bootloader_api::info::FrameBufferInfo;
 use embedded_graphics::{
     geometry::Point,
     mono_font::{
@@ -56,7 +57,7 @@ pub struct Color {
     ) }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Colors {
     Black, Silver, Gray, White,
@@ -84,7 +85,7 @@ pub enum Colors {
     } }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Fonts {
     Font6x9, Font6x10, Font6x12,
@@ -96,7 +97,7 @@ pub enum Fonts {
     Font9x18, Font9x18B,
     Font10x20,
 } #[allow(dead_code)] impl Fonts {
-    fn get_size(self) -> Size { match self {
+    pub fn get_size(self) -> Size { match self {
         Fonts::Font6x9 => Size::new(6, 9),
         Fonts::Font6x10 => Size::new(6, 10),
         Fonts::Font6x12 => Size::new(6, 12),
@@ -141,7 +142,7 @@ pub enum Fonts {
     } }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum TextBaseline {
     Top, Middle, Bottom,
@@ -153,7 +154,7 @@ pub enum TextBaseline {
     } }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum TextAlignment {
     Left, Center, Right,
@@ -165,7 +166,7 @@ pub enum TextAlignment {
     } }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum TextLineHeight {
     Half, Full, Double,
@@ -198,5 +199,5 @@ pub trait DisplayApi {
     );
     fn draw_image(&mut self, position: Position, size: Size, image: &[u8]);
     fn clear(&mut self, color: Color);
-    fn get_size(&self) -> Size;
+    fn get_info(&self) -> FrameBufferInfo;
 }

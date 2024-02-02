@@ -11,8 +11,8 @@ pub struct Kernel<'a> {
 
     pub fn init(&mut self) {
         match self.display_manager.get_driver() {
-            DisplayDriverType::Text(_driver) => {},
-            DisplayDriverType::Graphics(_driver) => {}
+            DisplayDriverType::Text(_driver, ..) => {},
+            DisplayDriverType::Graphics(_driver, ..) => {},
             _ => panic!("Unsupported display driver type!")
         }
     }

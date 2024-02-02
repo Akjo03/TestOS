@@ -26,9 +26,8 @@ use embedded_graphics::{
 };
 use talc::{ClaimOnOom, Span, Talc, Talck};
 
-use crate::drivers::display::{CommonDisplayDriver, DisplayDriverType, DummyDisplayDriver};
 use crate::kernel::Kernel;
-use crate::managers::display::DisplayManager;
+use crate::managers::display::{DisplayManager, DisplayMode};
 
 mod kernel;
 mod api;
@@ -60,7 +59,7 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
             get_framebuffer().unwrap(),
             get_framebuffer_info().unwrap()
         );
-        display_manager.set_driver(DisplayDriverType::Dummy(DummyDisplayDriver::new()));
+        display_manager.set_driver(DisplayMode::Dummy);
         display_manager.clear_screen();
 
         let mut kernel = Kernel::new(

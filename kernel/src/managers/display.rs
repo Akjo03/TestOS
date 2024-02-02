@@ -3,9 +3,36 @@ use core::cell::RefCell;
 
 use bootloader_api::info::FrameBufferInfo;
 
-use crate::api::display::Colors;
-use crate::drivers::display::{DisplayDriverManager, DisplayDriverType};
+use crate::api::display::{Colors, DisplayApi, Fonts};
+use crate::drivers::display::{CommonDisplayDriver, DisplayDriverManager, DisplayDriverType, DummyDisplayDriver};
+use crate::drivers::display::graphics::{GraphicsDisplayDriver, GraphicsDisplayDriverArgs};
+use crate::drivers::display::text::{TextDisplayDriver, TextDisplayDriverArgs};
 use crate::systems::display::Display;
+
+#[allow(dead_code)]
+pub enum DisplayMode {
+    Unknown,
+    Dummy,
+    Text(Rc<RefCell<Fonts>>),
+    Graphics
+} impl<'a> DisplayMode {
+    fn get_driver(self, info: FrameBufferInfo) -> DisplayDriverType<'a> {
+        match self {
+            DisplayMode::Unknown => DisplayDriverType::Unknown,
+            DisplayMode::Dummy => DisplayDriverType::Dummy(
+                DummyDisplayDriver::new()
+            ),
+            DisplayMode::Text(font) => DisplayDriverType::Text(
+                TextDisplayDriver::new(),
+                TextDisplayDriverArgs::new(font, info.width, info.height)
+            ),
+            DisplayMode::Graphics => DisplayDriverType::Graphics(
+                GraphicsDisplayDriver::new(),
+                GraphicsDisplayDriverArgs::new(info.height, info.stride)
+            )
+        }
+    }
+}
 
 pub struct DisplayManager<'a> {
     display: Rc<RefCell<Display<'a>>>,
@@ -20,8 +47,9 @@ pub struct DisplayManager<'a> {
         }
     }
 
-    pub fn set_driver(&mut self, driver: DisplayDriverType<'a>) {
-        self.driver_manager.set_driver(driver, Rc::clone(&self.display));
+    pub fn set_driver(&mut self, display_mode: DisplayMode) {
+        let driver = display_mode.get_driver(self.display.borrow().get_info());
+        self.driver_manager.set_driver(driver, self.display.clone());
     }
 
     pub fn get_driver(&mut self) -> &mut DisplayDriverType<'a> {

@@ -229,11 +229,8 @@ pub struct Display<'a> {
         }
     }
 
-    fn get_size(&self) -> Size {
-        Size {
-            width: self.frame.frame_buffer_info.width,
-            height: self.frame.frame_buffer_info.height
-        }
+    fn get_info(&self) -> FrameBufferInfo {
+        self.frame.frame_buffer_info
     }
 }
 
