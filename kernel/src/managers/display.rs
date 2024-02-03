@@ -3,26 +3,20 @@ use core::cell::RefCell;
 
 use bootloader_api::info::FrameBufferInfo;
 
-use crate::api::display::{Colors, DisplayApi, Fonts};
+use crate::api::display::{Colors, DisplayApi};
 use crate::drivers::display::{CommonDisplayDriver, DisplayDriverManager, DisplayDriverType, DummyDisplayDriver};
-use crate::drivers::display::text::{TextDisplayDriver, TextDisplayDriverArgs};
 use crate::systems::display::Display;
 
 #[allow(dead_code)]
 pub enum DisplayMode {
     Unknown,
-    Dummy,
-    Text(Fonts)
+    Dummy
 } impl<'a> DisplayMode {
     fn get_driver(self, info: FrameBufferInfo) -> DisplayDriverType<'a> {
         match self {
             DisplayMode::Unknown => DisplayDriverType::Unknown,
             DisplayMode::Dummy => DisplayDriverType::Dummy(
                 DummyDisplayDriver::new()
-            ),
-            DisplayMode::Text(font) => DisplayDriverType::Text(
-                TextDisplayDriver::new(),
-                TextDisplayDriverArgs::new(Rc::new(RefCell::new(font)), info.width, info.height)
             )
         }
     }
@@ -52,5 +46,9 @@ pub struct DisplayManager<'a> {
 
     pub fn clear_screen(&mut self) {
         self.driver_manager.clear(Colors::Black.into())
+    }
+
+    pub fn draw_all(&mut self) {
+        self.driver_manager.draw_all()
     }
 }

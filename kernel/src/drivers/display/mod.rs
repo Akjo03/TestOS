@@ -2,10 +2,7 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 
 use crate::api::display::{Color, DisplayApi, Size};
-use crate::drivers::display::text::{TextDisplayDriver, TextDisplayDriverArgs};
 use crate::systems::display::Display;
-
-pub mod text;
 
 pub struct DisplayDriverManager<'a> {
     pub current_driver: DisplayDriverType<'a>
@@ -16,19 +13,30 @@ pub struct DisplayDriverManager<'a> {
 
     pub fn set_driver(&mut self, driver: DisplayDriverType<'a>, display: Rc<RefCell<Display<'a>>>) {
         match &mut self.current_driver {
-            DisplayDriverType::Text(ref mut driver, ..) => {
-                driver.deactivate();
-            }, DisplayDriverType::Dummy(ref mut driver) => {
+            DisplayDriverType::Dummy(ref mut driver) => {
                 driver.deactivate();
             }, _ => {}
         }
         self.current_driver = driver;
         match &mut self.current_driver {
-            DisplayDriverType::Text(ref mut driver, args) => {
-                driver.init(args);
+            DisplayDriverType::Dummy(ref mut driver) => {
                 driver.activate(display);
-            }, DisplayDriverType::Dummy(ref mut driver) => {
-                driver.activate(display);
+            }, _ => {}
+        }
+    }
+
+    pub fn clear(&mut self, color: Color) {
+        match &mut self.current_driver {
+            DisplayDriverType::Dummy(ref mut driver) => {
+                driver.clear(color);
+            }, _ => {}
+        }
+    }
+
+    pub fn draw_all(&mut self) {
+        match &mut self.current_driver {
+            DisplayDriverType::Dummy(ref mut driver) => {
+                driver.draw_all();
             }, _ => {}
         }
     }
@@ -36,26 +44,14 @@ pub struct DisplayDriverManager<'a> {
     pub fn get_driver(&self) -> &DisplayDriverType<'a> {
         &self.current_driver
     }
-
-    pub fn clear(&mut self, color: Color) {
-        match &mut self.current_driver {
-            DisplayDriverType::Dummy(ref mut driver) => {
-                driver.clear(color);
-            }, DisplayDriverType::Text(ref mut driver, ..) => {
-                driver.clear(color);
-            }, _ => {}
-        }
-    }
 }
 
 #[allow(dead_code)]
 pub enum DisplayDriverType<'a> {
     Unknown,
-    Dummy(DummyDisplayDriver<'a>),
-    Text(TextDisplayDriver<'a>, TextDisplayDriverArgs)
+    Dummy(DummyDisplayDriver<'a>)
 }
 
-#[allow(unused_variables)]
 trait DisplayDriver<'a> {
     fn activate(&mut self, display: Rc<RefCell<Display<'a>>>);
     fn deactivate(&mut self);
