@@ -12,7 +12,7 @@ pub enum DisplayMode {
     Unknown,
     Dummy
 } impl<'a> DisplayMode {
-    fn get_driver(self, info: FrameBufferInfo) -> DisplayDriverType<'a> {
+    fn get_driver(self, _info: FrameBufferInfo) -> DisplayDriverType<'a> {
         match self {
             DisplayMode::Unknown => DisplayDriverType::Unknown,
             DisplayMode::Dummy => DisplayDriverType::Dummy(
