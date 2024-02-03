@@ -12,17 +12,15 @@ pub struct Kernel<'a> {
 
     pub fn init(&mut self) {
         self.display_manager.set_driver(DisplayMode::Text(Fonts::Font9x18));
+    }
 
+    pub fn tick(&mut self, _tick: u64) {
         match self.display_manager.get_driver() {
             DisplayDriverType::Text(driver, ..) => {
                 driver.draw_all();
             },
             _ => panic!("Unsupported display driver type!")
         }
-    }
-
-    pub fn tick(&mut self) {
-        self.running = false;
     }
 
     pub fn halt(&mut self) -> ! {

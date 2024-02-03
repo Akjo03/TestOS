@@ -67,7 +67,12 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         );
 
         kernel.init();
-        while kernel.running { kernel.tick(); }
+
+        let mut tick = 0u64;
+        while kernel.running {
+            kernel.tick(tick);
+            tick += 1;
+        }
 
         kernel.halt()
     } else { loop {} }
