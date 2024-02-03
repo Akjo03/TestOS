@@ -183,6 +183,7 @@ pub enum TextLineHeight {
 }
 
 pub trait DisplayApi {
+    fn draw(&mut self, buffer: &[u8]);
     fn draw_text(
         &mut self, text: &str, position: Position,
         text_color: Color, background_color: Option<Color>,
@@ -190,6 +191,6 @@ pub trait DisplayApi {
         baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
     );
     fn clear(&mut self, color: Color);
-    fn draw_all(&mut self, buffer: &[u8]);
+    fn swap(&mut self);
     fn get_info(&self) -> FrameBufferInfo;
 }

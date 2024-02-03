@@ -13,14 +13,24 @@ use embedded_graphics::{
 use crate::api::display::{Color, DisplayApi, Position, TextAlignment, TextBaseline, TextLineHeight};
 
 pub struct Display<'a> {
-    frame: DisplayFrame<'a>
+    display_frame: DisplayFrame<'a>
 } impl<'a> Display<'a> {
     pub fn new(frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
         Self {
-            frame: DisplayFrame::new(frame_buffer, frame_buffer_info)
+            display_frame: DisplayFrame::new(frame_buffer, frame_buffer_info)
         }
     }
 } impl<'a> DisplayApi for Display<'a> {
+    fn draw(&mut self, buffer: &[u8]) {
+        if buffer.len() != self.display_frame.frame_buffer.len() {
+            panic!("Buffer data does not match the expected size");
+        }
+
+        for (i, byte) in buffer.iter().enumerate() {
+            self.display_frame.frame_buffer[i] = *byte;
+        }
+    }
+
     fn draw_text(&mut self,
                  text: &str, position: Position,
                  text_color: Color, background_color: Option<Color>,
@@ -42,27 +52,19 @@ pub struct Display<'a> {
             text, Point::new(position.x as i32, position.y as i32), font_style, text_style
         );
 
-        text.draw(&mut self.frame).expect("Failed to draw text!");
+        text.draw(&mut self.display_frame).expect("Failed to draw text!");
     }
 
     fn clear(&mut self, color: Color) {
-        for byte_offset in (0..self.frame.frame_buffer.len()).step_by(self.frame.frame_buffer_info.bytes_per_pixel) {
-            set_pixel_in_at(self.frame.frame_buffer_info, &mut self.frame.frame_buffer, byte_offset, color)
+        for byte_offset in (0..self.display_frame.frame_buffer.len()).step_by(self.display_frame.frame_buffer_info.bytes_per_pixel) {
+            set_pixel_in_at(self.display_frame.frame_buffer_info, &mut self.display_frame.frame_buffer, byte_offset, color)
         }
     }
 
-    fn draw_all(&mut self, buffer: &[u8]) {
-        if buffer.len() != self.frame.frame_buffer.len() {
-            panic!("Buffer data does not match the expected size");
-        }
-
-        for (i, byte) in buffer.iter().enumerate() {
-            self.frame.frame_buffer[i] = *byte;
-        }
-    }
+    fn swap(&mut self) {}
 
     fn get_info(&self) -> FrameBufferInfo {
-        self.frame.frame_buffer_info
+        self.display_frame.frame_buffer_info
     }
 }
 
@@ -95,14 +97,18 @@ struct DisplayFrame<'a> {
     }
 } impl<'a> Dimensions for DisplayFrame<'a> {
     fn bounding_box(&self) -> Rectangle {
-        Rectangle::new(
-            Point::new(0, 0),
-            embedded_graphics::geometry::Size::new(
-                self.frame_buffer_info.width as u32,
-                self.frame_buffer_info.height as u32
-            )
-        )
+        get_bounds(self.frame_buffer_info)
     }
+}
+
+fn get_bounds(info: FrameBufferInfo) -> Rectangle {
+    Rectangle::new(
+        Point::new(0, 0),
+        embedded_graphics::geometry::Size::new(
+            info.width as u32,
+            info.height as u32
+        )
+    )
 }
 
 fn set_pixel_in(info: FrameBufferInfo, frame_buffer: &mut [u8], position: Position, color: Color) {

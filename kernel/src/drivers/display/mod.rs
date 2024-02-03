@@ -75,7 +75,9 @@ pub struct DummyDisplayDriver<'a> {
 
     fn clear(&mut self, color: Color) {
         if let Some(display) = &mut self.display {
-            display.borrow_mut().clear(color);
+            let mut display = display.borrow_mut();
+            display.clear(color);
+            display.swap();
         }
     }
 
