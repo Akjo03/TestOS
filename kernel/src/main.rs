@@ -15,7 +15,6 @@ use bootloader_api::{
     info::FrameBufferInfo
 };
 use x86_64::VirtAddr;
-use crate::drivers::display::CommonDisplayDriver;
 use crate::internal::memory::{BootInfoFrameAllocator, SimpleBootInfoFrameAllocator};
 use crate::kernel::Kernel;
 use crate::managers::display::{DisplayManager, DisplayMode, DisplayType};
