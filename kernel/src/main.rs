@@ -55,9 +55,11 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         let buffer = frame_buffer.buffer_mut();
         initialize_framebuffer(buffer, info);
 
+        let frame_buffer = get_framebuffer().unwrap();
+        let frame_buffer_info = get_framebuffer_info().unwrap();
         let mut display_manager = DisplayManager::new(
-            get_framebuffer().unwrap(),
-            get_framebuffer_info().unwrap()
+            frame_buffer,
+            frame_buffer_info
         );
         display_manager.set_driver(DisplayMode::Dummy);
         display_manager.clear_screen();
