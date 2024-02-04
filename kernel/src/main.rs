@@ -10,6 +10,7 @@ use alloc::string::String;
 use core::panic::PanicInfo;
 use core::ptr::addr_of;
 use core::sync::atomic::{AtomicBool, Ordering};
+use bootloader_api::config::Mapping;
 
 use bootloader_api::info::{FrameBufferInfo, PixelFormat};
 use embedded_graphics::{
@@ -44,6 +45,7 @@ static ALLOCATOR: Talck<spin::Mutex<()>, ClaimOnOom> = Talc::new(unsafe {
 
 const BOOTLOADER_CONFIG: bootloader_api::BootloaderConfig = {
     let mut config = bootloader_api::BootloaderConfig::new_default();
+    config.mappings.physical_memory = Some(Mapping::Dynamic);
     config.kernel_stack_size = 1024 * 1024;
     config
 };
@@ -54,54 +56,60 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         let info = frame_buffer.info().clone();
         let buffer = frame_buffer.buffer_mut();
         initialize_framebuffer(buffer, info);
-
-        let frame_buffer = get_framebuffer().unwrap();
-        let frame_buffer_info = get_framebuffer_info().unwrap();
-        let mut display_manager = DisplayManager::new(
-            frame_buffer,
-            frame_buffer_info
-        );
-        display_manager.set_driver(DisplayMode::Dummy);
-        display_manager.clear_screen();
-
-        let mut kernel = Kernel::new(
-            display_manager
-        );
-
-        kernel.init();
-
-        let mut tick = 0u64;
-        while kernel.running {
-            kernel.tick(tick);
-            tick += 1;
-        }
-
-        kernel.halt()
     } else { loop {} }
+
+    if let Some(frame_buffer) = get_framebuffer() {
+        if let Some(frame_buffer_info) = get_framebuffer_info() {
+            let mut display_manager = DisplayManager::new(
+                frame_buffer,
+                frame_buffer_info
+            );
+            display_manager.set_driver(DisplayMode::Dummy);
+            display_manager.clear_screen();
+
+            let mut kernel = Kernel::new(
+                display_manager
+            );
+
+            kernel.init();
+
+            let mut tick = 0u64;
+            while kernel.running {
+                kernel.tick(tick);
+                tick += 1;
+            }
+
+            kernel.halt()
+        } else { panic!("Frame buffer info not found!") }
+    } else { panic!("Frame buffer not found!") }
 }
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    let display = get_framebuffer().map(|fb| KernelFramebufferWrapper::new(fb, get_framebuffer_info().unwrap()));
-    let mut message_found = false;
-    if let Some(mut display) = display {
-        display.clear(Rgb888::new(0, 0, 255));
-        display.draw_text("Kernel Panic -- please reboot your machine! See message below:", Point::new(0, 0), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
-        if let Some(payload) = info.payload().downcast_ref::<&str>() {
-            display.draw_text(payload, Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
-            message_found = true;
-        } else if let Some(payload) = info.payload().downcast_ref::<String>() {
-            display.draw_text(&payload, Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
-            message_found = true;
-        } else if let Some(message) = info.message() {
-            if let Some(message_str) = message.as_str() {
-                display.draw_text(message_str, Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
-                message_found = true;
-            }
-        }
+    if let Some(frame_buffer) = get_framebuffer() {
+        let display = get_framebuffer_info().map(|info| KernelFramebufferWrapper::new(frame_buffer, info));
 
-        if !message_found {
-            display.draw_text("No message provided.", Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
+        if let Some(mut display) = display {
+            let mut message_found = false;
+
+            display.clear(Rgb888::new(0, 0, 255));
+            display.draw_text("Kernel Panic -- please reboot your machine! See message below:", Point::new(0, 0), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
+            if let Some(payload) = info.payload().downcast_ref::<&str>() {
+                display.draw_text(payload, Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
+                message_found = true;
+            } else if let Some(payload) = info.payload().downcast_ref::<String>() {
+                display.draw_text(&payload, Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
+                message_found = true;
+            } else if let Some(message) = info.message() {
+                if let Some(message_str) = message.as_str() {
+                    display.draw_text(message_str, Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
+                    message_found = true;
+                }
+            }
+
+            if !message_found {
+                display.draw_text("No message provided.", Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
+            }
         }
     }
     loop {}
