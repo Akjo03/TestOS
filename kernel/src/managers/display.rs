@@ -52,7 +52,7 @@ pub struct DisplayManager<'a> {
         Self { display, driver_manager }
     }
 
-    pub fn set_driver(&mut self, display_mode: DisplayMode) {
+    pub fn set_mode(&mut self, display_mode: DisplayMode) {
         let driver = display_mode.get_driver(self.display.borrow().get_info());
         self.driver_manager.set_driver(driver, self.display.clone());
     }
