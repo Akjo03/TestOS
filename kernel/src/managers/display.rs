@@ -3,21 +3,29 @@ use core::cell::RefCell;
 
 use bootloader_api::info::FrameBufferInfo;
 
-use crate::api::display::{Colors, DisplayApi};
+use crate::api::display::{Colors, DisplayApi, Fonts, Size};
 use crate::drivers::display::{CommonDisplayDriver, DisplayDriverManager, DisplayDriverType, DummyDisplayDriver};
+use crate::drivers::display::text::{TextDisplayDriver, TextDisplayDriverArgs};
 use crate::systems::display::{BufferedDisplay, SimpleDisplay};
 
 #[allow(dead_code)]
 pub enum DisplayMode {
     Unknown,
-    Dummy
+    Dummy,
+    Text(Fonts)
 } impl<'a> DisplayMode {
-    fn get_driver(self, _info: FrameBufferInfo) -> DisplayDriverType<'a> {
+    fn get_driver(self, info: FrameBufferInfo) -> DisplayDriverType<'a> {
         match self {
             DisplayMode::Unknown => DisplayDriverType::Unknown,
             DisplayMode::Dummy => DisplayDriverType::Dummy(
                 DummyDisplayDriver::new()
-            )
+            ), DisplayMode::Text(font) => DisplayDriverType::Text(
+                TextDisplayDriver::new(),
+                TextDisplayDriverArgs::new(
+                    Rc::new(RefCell::new(font)),
+                    Size::new(info.width, info.height
+                )
+            ))
         }
     }
 }

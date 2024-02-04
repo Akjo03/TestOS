@@ -1,3 +1,4 @@
+use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 use bootloader_api::info::{FrameBufferInfo, PixelFormat};
@@ -30,6 +31,33 @@ pub struct SimpleDisplay<'a> {
 
         for (i, byte) in buffer.iter().enumerate() {
             self.display_frame.frame_buffer[i] = *byte;
+        }
+    }
+
+    fn draw_char(
+        &mut self, character: char, position: Position,
+        text_color: Color, background_color: Option<Color>,
+        font: MonoFont, underline: bool, strikethrough: bool,
+        baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
+    ) {
+        let mut font_style = MonoTextStyle::new(&font, text_color.into());
+        font_style.set_background_color(background_color.map(|color| color.into()));
+
+        if underline { font_style.set_underline_color(DecorationColor::TextColor); }
+        if strikethrough { font_style.set_strikethrough_color(DecorationColor::TextColor); }
+
+        let mut text_style = TextStyle::default();
+        text_style.baseline = baseline.into();
+        text_style.alignment = alignment.into();
+        text_style.line_height = line_height.into();
+
+        let binding = character.to_string();
+        let text = Text::with_text_style(
+            &*binding, Point::new(position.x as i32, position.y as i32), font_style, text_style
+        );
+
+        if let Err(_) = text.draw(&mut self.display_frame) {
+            panic!("Failed to draw text!");
         }
     }
 
@@ -92,7 +120,39 @@ pub struct BufferedDisplay<'a> {
         }
     }
 
-    fn draw_text(&mut self, text: &str, position: Position, text_color: Color, background_color: Option<Color>, font: MonoFont, underline: bool, strikethrough: bool, baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight) {
+    fn draw_char(
+        &mut self, character: char, position: Position,
+        text_color: Color, background_color: Option<Color>,
+        font: MonoFont, underline: bool, strikethrough: bool, baseline:
+        TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
+    ) {
+        let mut font_style = MonoTextStyle::new(&font, text_color.into());
+        font_style.set_background_color(background_color.map(|color| color.into()));
+
+        if underline { font_style.set_underline_color(DecorationColor::TextColor); }
+        if strikethrough { font_style.set_strikethrough_color(DecorationColor::TextColor); }
+
+        let mut text_style = TextStyle::default();
+        text_style.baseline = baseline.into();
+        text_style.alignment = alignment.into();
+        text_style.line_height = line_height.into();
+
+        let binding = character.to_string();
+        let text = Text::with_text_style(
+            &*binding, Point::new(position.x as i32, position.y as i32), font_style, text_style
+        );
+
+        if let Err(_) = text.draw(&mut self.back_frame) {
+            panic!("Failed to draw text!");
+        }
+    }
+
+    fn draw_text(
+        &mut self, text: &str, position: Position,
+        text_color: Color, background_color: Option<Color>,
+        font: MonoFont, underline: bool, strikethrough: bool,
+        baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
+    ) {
         let mut font_style = MonoTextStyle::new(&font, text_color.into());
         font_style.set_background_color(background_color.map(|color| color.into()));
 

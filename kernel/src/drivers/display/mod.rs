@@ -2,6 +2,9 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 
 use crate::api::display::{Color, Colors, DisplayApi, Fonts, Position, Size, TextAlignment, TextBaseline, TextLineHeight};
+use crate::drivers::display::text::{TextDisplayDriver, TextDisplayDriverArgs};
+
+pub mod text;
 
 pub struct DisplayDriverManager<'a> {
     pub current_driver: DisplayDriverType<'a>
@@ -14,11 +17,16 @@ pub struct DisplayDriverManager<'a> {
         match &mut self.current_driver {
             DisplayDriverType::Dummy(ref mut driver) => {
                 driver.deactivate();
+            }, DisplayDriverType::Text(ref mut driver, ..) => {
+                driver.deactivate();
             }, _ => {}
         }
         self.current_driver = driver;
         match &mut self.current_driver {
             DisplayDriverType::Dummy(ref mut driver) => {
+                driver.activate(display);
+            }, DisplayDriverType::Text(ref mut driver, args) => {
+                driver.init(args);
                 driver.activate(display);
             }, _ => {}
         }
@@ -28,6 +36,8 @@ pub struct DisplayDriverManager<'a> {
         match &mut self.current_driver {
             DisplayDriverType::Dummy(ref mut driver) => {
                 driver.clear(color);
+            }, DisplayDriverType::Text(ref mut driver, ..) => {
+                driver.clear(color);
             }, _ => {}
         }
     }
@@ -35,6 +45,8 @@ pub struct DisplayDriverManager<'a> {
     pub fn draw_all(&mut self) {
         match &mut self.current_driver {
             DisplayDriverType::Dummy(ref mut driver) => {
+                driver.draw_all();
+            }, DisplayDriverType::Text(ref mut driver, ..) => {
                 driver.draw_all();
             }, _ => {}
         }
@@ -48,7 +60,8 @@ pub struct DisplayDriverManager<'a> {
 #[allow(dead_code)]
 pub enum DisplayDriverType<'a> {
     Unknown,
-    Dummy(DummyDisplayDriver<'a>)
+    Dummy(DummyDisplayDriver<'a>),
+    Text(TextDisplayDriver<'a>, TextDisplayDriverArgs)
 }
 
 trait DisplayDriver<'a> {
@@ -66,7 +79,7 @@ pub trait CommonDisplayDriver<'a> {
 
 pub struct DummyDisplayDriver<'a> {
     display: Option<Rc<RefCell<dyn DisplayApi + 'a>>>,
-} impl<'a> DummyDisplayDriver<'a> {
+} #[allow(dead_code)] impl DummyDisplayDriver<'_> {
     pub fn draw_panic(&mut self, message: &str) {
         if let Some(display) = self.display.as_mut() {
             let mut display = display.borrow_mut();
@@ -84,7 +97,7 @@ pub struct DummyDisplayDriver<'a> {
                 TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
             );
             display.swap();
-        }
+        } else { panic!("No display to draw panic message to!"); }
     }
 } impl<'a> CommonDisplayDriver<'a> for DummyDisplayDriver<'a> {
     fn new() -> Self { Self {
@@ -94,7 +107,7 @@ pub struct DummyDisplayDriver<'a> {
     fn draw_all(&mut self) {
         if let Some(display) = self.display.as_mut() {
             display.borrow_mut().swap();
-        }
+        } else { panic!("No display to draw to!"); }
     }
 
     fn clear(&mut self, color: Color) {
@@ -102,7 +115,7 @@ pub struct DummyDisplayDriver<'a> {
             let mut display = display.borrow_mut();
             display.clear(color);
             display.swap();
-        }
+        } else { panic!("No display to clear!"); }
     }
 
     fn get_size(&self) -> Size {

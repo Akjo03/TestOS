@@ -61,7 +61,7 @@ pub struct Color {
 #[allow(dead_code)]
 pub enum Colors {
     Black, Silver, Gray, White,
-    Maroon, Red, Purple, Fuchsia,
+    Maroon, Brown, Red, Purple, Fuchsia,
     Green, Lime, Olive, Yellow,
     Navy, Blue, Teal, Aqua,
 } #[allow(dead_code)] impl Into<Color> for Colors {
@@ -71,6 +71,7 @@ pub enum Colors {
         Colors::Gray => Color::new(128, 128, 128),
         Colors::White => Color::new(255, 255, 255),
         Colors::Maroon => Color::new(128, 0, 0),
+        Colors::Brown => Color::new(165, 42, 42),
         Colors::Red => Color::new(255, 0, 0),
         Colors::Purple => Color::new(128, 0, 128),
         Colors::Fuchsia => Color::new(255, 0, 255),
@@ -184,6 +185,12 @@ pub enum TextLineHeight {
 
 pub trait DisplayApi {
     fn draw(&mut self, buffer: &[u8]);
+    fn draw_char(
+        &mut self, character: char, position: Position,
+        text_color: Color, background_color: Option<Color>,
+        font: MonoFont, underline: bool, strikethrough: bool,
+        baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
+    );
     fn draw_text(
         &mut self, text: &str, position: Position,
         text_color: Color, background_color: Option<Color>,
