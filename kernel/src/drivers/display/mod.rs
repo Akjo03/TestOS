@@ -57,35 +57,36 @@ trait DisplayDriver<'a> {
     fn deactivate(&mut self);
 }
 
-pub trait CommonDisplayDriver {
-    fn new() -> Self;
-    fn draw_all(&mut self);
-    fn clear(&mut self, color: Color);
-    fn get_size(&self) -> Size;
-}
-
-pub struct DummyDisplayDriver<'a> {
-    display: Option<Rc<RefCell<Display<'a>>>>,
-} impl CommonDisplayDriver for DummyDisplayDriver<'_> {
-    fn new() -> Self { Self {
-        display: None
-    } }
-
+pub trait CommonDisplayDriver<'a> {
     fn draw_all(&mut self) {}
 
     fn clear(&mut self, color: Color) {
-        if let Some(display) = &mut self.display {
+        if let Some(display) = &mut self.get_display() {
             let mut display = display.borrow_mut();
             display.clear(color);
             display.swap();
         }
     }
-
     fn get_size(&self) -> Size {
-        if let Some(display) = &self.display {
+        if let Some(display) = &self.get_display() {
             let info = display.borrow().get_info();
             Size::new(info.width, info.height)
         } else { Size::new(0, 0) }
+    }
+
+    fn new() -> Self;
+    fn get_display(&self) -> Option<&Rc<RefCell<Display<'a>>>>;
+}
+
+pub struct DummyDisplayDriver<'a> {
+    display: Option<Rc<RefCell<Display<'a>>>>,
+} impl<'a> CommonDisplayDriver<'a> for DummyDisplayDriver<'a> {
+    fn new() -> Self { Self {
+        display: None
+    } }
+
+    fn get_display(&self) -> Option<&Rc<RefCell<Display<'a>>>> {
+        self.display.as_ref()
     }
 } impl<'a> DisplayDriver<'a> for DummyDisplayDriver<'a> {
     fn activate(&mut self, display: Rc<RefCell<Display<'a>>>) {

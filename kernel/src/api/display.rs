@@ -2,7 +2,7 @@ use bootloader_api::info::FrameBufferInfo;
 use embedded_graphics::{
     geometry::Point,
     mono_font::{
-        iso_8859_1::*, MonoFont,
+        ascii::*, MonoFont,
     },
     pixelcolor::Rgb888, text::{
         Alignment, Baseline, LineHeight
