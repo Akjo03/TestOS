@@ -1,7 +1,7 @@
 use alloc::rc::Rc;
 use core::cell::RefCell;
 
-use crate::api::display::{Color, DisplayApi, Size};
+use crate::api::display::{Color, Colors, DisplayApi, Fonts, Position, Size, TextAlignment, TextBaseline, TextLineHeight};
 
 pub struct DisplayDriverManager<'a> {
     pub current_driver: DisplayDriverType<'a>
@@ -66,6 +66,25 @@ pub trait CommonDisplayDriver<'a> {
 
 pub struct DummyDisplayDriver<'a> {
     display: Option<Rc<RefCell<dyn DisplayApi + 'a>>>,
+} impl<'a> DummyDisplayDriver<'a> {
+    pub fn draw_panic(&mut self, message: &str) {
+        if let Some(display) = self.display.as_mut() {
+            let mut display = display.borrow_mut();
+            display.clear(Colors::Blue.into());
+            display.draw_text(
+                "Kernel Panic -- please reboot your machine! See message below:", Position::new(0, 0),
+                Colors::White.into(), None,
+                Fonts::Font9x18.into(), false, false,
+                TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
+            );
+            display.draw_text(
+                message, Position::new(0, 18),
+                Colors::White.into(), None,
+                Fonts::Font9x18.into(), false, false,
+                TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
+            );
+        }
+    }
 } impl<'a> CommonDisplayDriver<'a> for DummyDisplayDriver<'a> {
     fn new() -> Self { Self {
         display: None

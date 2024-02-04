@@ -7,6 +7,7 @@
 
 extern crate alloc;
 
+use alloc::string::String;
 use core::panic::PanicInfo;
 use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -15,6 +16,7 @@ use bootloader_api::{
     info::FrameBufferInfo
 };
 use x86_64::VirtAddr;
+use crate::drivers::display::DisplayDriverType;
 use crate::internal::memory::{BootInfoFrameAllocator, SimpleBootInfoFrameAllocator};
 use crate::kernel::Kernel;
 use crate::managers::display::{DisplayManager, DisplayMode, DisplayType};
@@ -84,13 +86,33 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 }
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
     if let Some(frame_buffer) = get_framebuffer() {
         if let Some(frame_buffer_info) = get_framebuffer_info() {
             let mut display_manager = DisplayManager::new(DisplayType::Simple, frame_buffer, frame_buffer_info);
             display_manager.set_mode(DisplayMode::Dummy);
+
             match display_manager.get_driver() {
-                _ => {}
+                DisplayDriverType::Dummy(driver) => {
+                    let mut message_found = false;
+
+                    if let Some(payload) = info.payload().downcast_ref::<&str>() {
+                        driver.draw_panic(payload);
+                        message_found = true;
+                    } else if let Some(payload) = info.payload().downcast_ref::<String>() {
+                        driver.draw_panic(payload.as_str());
+                        message_found = true;
+                    } else if let Some(message) = info.message() {
+                        if let Some(message_str) = message.as_str() {
+                            driver.draw_panic(message_str);
+                            message_found = true;
+                        }
+                    }
+
+                    if !message_found {
+                        driver.draw_panic("No message provided!");
+                    }
+                }, _ => {}
             }
         }
     }
