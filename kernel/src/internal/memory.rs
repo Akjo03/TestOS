@@ -1,3 +1,4 @@
+use alloc::collections::VecDeque;
 use bootloader_api::info::{MemoryRegionKind, MemoryRegions};
 use x86_64::{
     PhysAddr,
@@ -8,10 +9,10 @@ use x86_64::{
     VirtAddr
 };
 
-pub struct BootInfoFrameAllocator {
+pub struct SimpleBootInfoFrameAllocator {
     memory_regions: &'static MemoryRegions,
     next: usize,
-} impl BootInfoFrameAllocator {
+} impl SimpleBootInfoFrameAllocator {
     pub unsafe fn new(memory_regions: &'static MemoryRegions) -> Self { Self {
         memory_regions, next: 0,
     } }
@@ -23,11 +24,29 @@ pub struct BootInfoFrameAllocator {
             .flat_map(|region_range| region_range.step_by(4096))
             .map(|addr| PhysFrame::containing_address(PhysAddr::new(addr)))
     }
-} unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
+} unsafe impl FrameAllocator<Size4KiB> for SimpleBootInfoFrameAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
         let frame = self.usable_regions().nth(self.next);
         self.next += 1;
         frame
+    }
+}
+
+pub struct BootInfoFrameAllocator {
+    usable_frames: VecDeque<PhysFrame>,
+} impl BootInfoFrameAllocator {
+    pub unsafe fn new(memory_regions: &'static MemoryRegions) -> Self {
+        let usable_frames = memory_regions.iter()
+            .filter(|region| region.kind == MemoryRegionKind::Usable)
+            .map(|region| region.start..region.end)
+            .flat_map(|region_range| region_range.step_by(4096))
+            .map(|addr| PhysFrame::containing_address(PhysAddr::new(addr)))
+            .collect::<VecDeque<_>>();
+        Self { usable_frames }
+    }
+} unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame> {
+        self.usable_frames.pop_front()
     }
 }
 

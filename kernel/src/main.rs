@@ -14,9 +14,8 @@ use bootloader_api::{
     config::{BootloaderConfig, Mapping},
     info::FrameBufferInfo
 };
-
 use x86_64::VirtAddr;
-use crate::internal::memory::BootInfoFrameAllocator;
+use crate::internal::memory::{BootInfoFrameAllocator, SimpleBootInfoFrameAllocator};
 
 use crate::kernel::Kernel;
 use crate::managers::display::{DisplayManager, DisplayMode};
@@ -44,15 +43,23 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         initialize_framebuffer(buffer, info);
     } else { loop {} }
 
-    if let Some(physical_memory_offset) = boot_info.physical_memory_offset.as_ref() {
-        let phys_mem_offset = VirtAddr::new(*physical_memory_offset);
-        let mut mapper = unsafe { internal::memory::init(phys_mem_offset) };
-        let mut frame_allocator = unsafe {
-            BootInfoFrameAllocator::new(&boot_info.memory_regions)
-        };
-        internal::allocator::init_heap(&mut mapper, &mut frame_allocator)
-            .expect("Heap initialization failed!");
+    let physical_memory_offset = boot_info.physical_memory_offset.as_ref()
+        .expect("Physical memory offset not found!");
+    let phys_mem_offset = VirtAddr::new(*physical_memory_offset);
+    let mut mapper = unsafe { internal::memory::init(phys_mem_offset) };
+    let mut simple_frame_allocator = unsafe {
+        SimpleBootInfoFrameAllocator::new(&boot_info.memory_regions)
+    };
+    if let Err(_) = internal::allocator::init_initial_heap(&mut mapper, &mut simple_frame_allocator) {
+        panic!("Initial heap initialization failed!");
     }
+    let mut frame_allocator = unsafe {
+        BootInfoFrameAllocator::new(&boot_info.memory_regions)
+    };
+    if let Err(_) = internal::allocator::init_main_heap(&mut mapper, &mut frame_allocator) {
+        panic!("Kernel heap initialization failed!");
+    }
+    internal::allocator::init_allocator();
 
     if let Some(frame_buffer) = get_framebuffer() {
         if let Some(frame_buffer_info) = get_framebuffer_info() {

@@ -52,7 +52,9 @@ pub struct Display<'a> {
             text, Point::new(position.x as i32, position.y as i32), font_style, text_style
         );
 
-        text.draw(&mut self.display_frame).expect("Failed to draw text!");
+        if let Err(_) = text.draw(&mut self.display_frame) {
+            panic!("Failed to draw text!");
+        }
     }
 
     fn clear(&mut self, color: Color) {
