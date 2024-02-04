@@ -8,8 +8,6 @@ use x86_64::{
     VirtAddr
 };
 
-
-
 pub struct BootInfoFrameAllocator {
     memory_regions: &'static MemoryRegions,
     next: usize,
