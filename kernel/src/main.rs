@@ -85,7 +85,7 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    if let Some(frame_buffer) = crate::get_framebuffer() {
+    if let Some(frame_buffer) = get_framebuffer() {
         if let Some(frame_buffer_info) = get_framebuffer_info() {
             let mut display_manager = DisplayManager::new(DisplayType::Simple, frame_buffer, frame_buffer_info);
             display_manager.set_mode(DisplayMode::Dummy);
