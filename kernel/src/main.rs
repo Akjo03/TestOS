@@ -112,6 +112,25 @@ fn panic(info: &PanicInfo) -> ! {
                     if !message_found {
                         driver.draw_panic("No message provided!");
                     }
+                }, DisplayDriverType::Text(driver, ..) => {
+                    let mut message_found = false;
+
+                    if let Some(payload) = info.payload().downcast_ref::<&str>() {
+                        driver.write_panic(payload);
+                        message_found = true;
+                    } else if let Some(payload) = info.payload().downcast_ref::<String>() {
+                        driver.write_panic(payload.as_str());
+                        message_found = true;
+                    } else if let Some(message) = info.message() {
+                        if let Some(message_str) = message.as_str() {
+                            driver.write_panic(message_str);
+                            message_found = true;
+                        }
+                    }
+
+                    if !message_found {
+                        driver.write_panic("No message provided!");
+                    }
                 }, _ => {}
             }
         }

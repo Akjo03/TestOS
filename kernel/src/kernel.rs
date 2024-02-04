@@ -14,7 +14,7 @@ pub struct Kernel<'a> {
     }
 
     pub fn init(&mut self) {
-        self.display_manager.set_mode(DisplayMode::Text(Fonts::Font9x18));
+        self.display_manager.set_mode(DisplayMode::Text(Fonts::Font10x20));
         match self.display_manager.get_driver() {
             DisplayDriverType::Text(driver, ..) => {
                 let test = vec!['a'; 80 * 25];
