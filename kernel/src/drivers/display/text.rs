@@ -151,6 +151,16 @@ pub struct TextDisplayDriver<'a> {
             color_code: color,
         };
         self.buffer[row] = [blank; BUFFER_WIDTH];
+        if row == self.cursor_position.y {
+            self.cursor_position.x = 0;
+        }
+    }
+
+    pub fn clear_buffer(&mut self, color: ColorCode) {
+        for row in 0..BUFFER_HEIGHT {
+            self.clear_row(row, color);
+        }
+        self.cursor_position = Position::new(0, 0);
     }
 
     pub fn new_line(&mut self) {

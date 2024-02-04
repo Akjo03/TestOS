@@ -1,7 +1,6 @@
-use alloc::string::String;
-use alloc::vec;
+use alloc::string::ToString;
 use crate::api::display::Fonts;
-use crate::drivers::display::DisplayDriverType;
+use crate::drivers::display::{CommonDisplayDriver, DisplayDriverType};
 use crate::drivers::display::text::{ColorCode, TextColor};
 use crate::managers::display::{DisplayManager, DisplayMode};
 
@@ -15,19 +14,21 @@ pub struct Kernel<'a> {
 
     pub fn init(&mut self) {
         self.display_manager.set_mode(DisplayMode::Text(Fonts::Font10x20));
+    }
+
+    pub fn tick(&mut self, tick: u64) {
         match self.display_manager.get_driver() {
             DisplayDriverType::Text(driver, ..) => {
-                let test = vec!['a'; 80 * 25];
-                let string: String = test.into_iter().collect();
-                driver.write_string(string.as_str(), ColorCode::new(TextColor::White, TextColor::Black));
+                driver.write_string(tick.to_string().as_str(), ColorCode::new(TextColor::White, TextColor::Black));
+                driver.draw_all();
+                driver.clear_buffer(ColorCode::new(TextColor::Black, TextColor::Black))
             },
             _ => panic!("Unsupported display driver!")
         }
-        self.display_manager.draw_all();
-    }
 
-    pub fn tick(&mut self, _tick: u64) {
-        self.running = false;
+        if tick > 20 {
+            panic!("Kernel ticked too many times!")
+        }
     }
 
     pub fn halt(&self) -> ! {
