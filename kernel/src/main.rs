@@ -1,6 +1,7 @@
 #![feature(exclusive_range_pattern)]
 #![feature(panic_info_message)]
 #![feature(const_mut_refs)]
+#![feature(abi_x86_interrupt)]
 #![no_std]
 #![no_main]
 
@@ -8,7 +9,6 @@ extern crate alloc;
 
 use alloc::string::String;
 use core::panic::PanicInfo;
-use core::ptr::addr_of;
 use core::sync::atomic::{AtomicBool, Ordering};
 use bootloader_api::config::Mapping;
 
@@ -25,23 +25,19 @@ use embedded_graphics::{
     primitives::Rectangle,
     text::{Baseline, Text, TextStyleBuilder}
 };
-use talc::{ClaimOnOom, Span, Talc, Talck};
+use x86_64::VirtAddr;
+use crate::internal::memory::BootInfoFrameAllocator;
 
 use crate::kernel::Kernel;
 use crate::managers::display::{DisplayManager, DisplayMode};
 
 mod kernel;
+mod internal;
+
 mod api;
 mod systems;
 mod drivers;
 mod managers;
-
-static mut BOOT_REGION: [u8; 1024 * 1024 * 2] = [0; 1024 * 1024 * 2];
-
-#[global_allocator]
-static ALLOCATOR: Talck<spin::Mutex<()>, ClaimOnOom> = Talc::new(unsafe {
-    ClaimOnOom::new(Span::from_const_array(addr_of!(BOOT_REGION)))
-}).lock();
 
 const BOOTLOADER_CONFIG: bootloader_api::BootloaderConfig = {
     let mut config = bootloader_api::BootloaderConfig::new_default();
@@ -57,6 +53,16 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         let buffer = frame_buffer.buffer_mut();
         initialize_framebuffer(buffer, info);
     } else { loop {} }
+
+    if let Some(physical_memory_offset) = boot_info.physical_memory_offset.as_ref() {
+        let phys_mem_offset = VirtAddr::new(*physical_memory_offset);
+        let mut mapper = unsafe { internal::memory::init(phys_mem_offset) };
+        let mut frame_allocator = unsafe {
+            BootInfoFrameAllocator::new(&boot_info.memory_regions)
+        };
+        internal::allocator::init_heap(&mut mapper, &mut frame_allocator)
+            .expect("Heap initialization failed!");
+    }
 
     if let Some(frame_buffer) = get_framebuffer() {
         if let Some(frame_buffer_info) = get_framebuffer_info() {
