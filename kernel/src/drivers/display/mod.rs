@@ -58,7 +58,7 @@ trait DisplayDriver<'a> {
 
 pub trait CommonDisplayDriver<'a> {
     fn new() -> Self;
-    fn draw_all(&mut self) {}
+    fn draw_all(&mut self);
 
     fn clear(&mut self, color: Color);
     fn get_size(&self) -> Size;
@@ -83,12 +83,19 @@ pub struct DummyDisplayDriver<'a> {
                 Fonts::Font9x18.into(), false, false,
                 TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
             );
+            display.swap();
         }
     }
 } impl<'a> CommonDisplayDriver<'a> for DummyDisplayDriver<'a> {
     fn new() -> Self { Self {
         display: None
     } }
+
+    fn draw_all(&mut self) {
+        if let Some(display) = self.display.as_mut() {
+            display.borrow_mut().swap();
+        }
+    }
 
     fn clear(&mut self, color: Color) {
         if let Some(display) = self.display.as_mut() {

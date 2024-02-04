@@ -128,7 +128,7 @@ pub struct BufferedDisplay<'a> {
         }
 
         self.display_frame.frame_buffer.copy_from_slice(&self.back_frame.back_buffer);
-        self.back_frame.back_buffer.clear();
+        self.back_frame.clear();
     }
 
     fn get_info(&self) -> FrameBufferInfo {
@@ -144,6 +144,11 @@ struct BackFrame {
         let back_buffer = vec![0; size];
         Self { back_buffer, frame_buffer_info }
     }
+} impl BackFrame {
+    pub fn clear(&mut self) {
+        self.back_buffer.iter_mut().for_each(|byte| *byte = 0);
+    }
+
 } impl DrawTarget for BackFrame {
 type Color = Rgb888;
     type Error = core::convert::Infallible;
