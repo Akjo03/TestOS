@@ -87,28 +87,42 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     if let Some(frame_buffer) = get_framebuffer() {
-        let display = get_framebuffer_info().map(|info| KernelFramebufferWrapper::new(frame_buffer, info));
+        let display = get_framebuffer_info().map(
+            |info| KernelFramebufferWrapper::new(frame_buffer, info)
+        );
 
         if let Some(mut display) = display {
             let mut message_found = false;
 
             display.clear(Rgb888::new(0, 0, 255));
-            display.draw_text("Kernel Panic -- please reboot your machine! See message below:", Point::new(0, 0), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
+            display.draw_text(
+                "Kernel Panic -- please reboot your machine! See message below:", Point::new(0, 0),
+                Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255)
+            );
             if let Some(payload) = info.payload().downcast_ref::<&str>() {
-                display.draw_text(payload, Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
-                message_found = true;
+                display.draw_text(
+                    payload, Point::new(0, 18),
+                    Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255)
+                ); message_found = true;
             } else if let Some(payload) = info.payload().downcast_ref::<String>() {
-                display.draw_text(&payload, Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
-                message_found = true;
+                display.draw_text(
+                    &payload, Point::new(0, 18),
+                    Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255)
+                ); message_found = true;
             } else if let Some(message) = info.message() {
                 if let Some(message_str) = message.as_str() {
-                    display.draw_text(message_str, Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
-                    message_found = true;
+                    display.draw_text(
+                        message_str, Point::new(0, 18),
+                        Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255)
+                    ); message_found = true;
                 }
             }
 
             if !message_found {
-                display.draw_text("No message provided.", Point::new(0, 18), Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255));
+                display.draw_text(
+                    "No message provided.", Point::new(0, 18),
+                    Rgb888::new(255, 255, 255), Rgb888::new(0, 0, 255)
+                );
             }
         }
     }
