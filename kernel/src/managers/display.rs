@@ -5,7 +5,7 @@ use bootloader_api::info::FrameBufferInfo;
 
 use crate::api::display::{Colors, DisplayApi};
 use crate::drivers::display::{CommonDisplayDriver, DisplayDriverManager, DisplayDriverType, DummyDisplayDriver};
-use crate::systems::display::Display;
+use crate::systems::display::{BufferedDisplay, SimpleDisplay};
 
 #[allow(dead_code)]
 pub enum DisplayMode {
@@ -22,17 +22,34 @@ pub enum DisplayMode {
     }
 }
 
+#[allow(dead_code)]
+pub enum DisplayType {
+    Unknown,
+    Simple,
+    Buffered
+} impl<'a> DisplayType {
+    pub fn new(&self, frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Rc<RefCell<dyn DisplayApi + 'a>> {
+        match self {
+            DisplayType::Unknown => panic!("Unknown display type!"),
+            DisplayType::Simple => Rc::new(RefCell::new(
+                SimpleDisplay::new(frame_buffer, frame_buffer_info)
+            )),
+            DisplayType::Buffered => Rc::new(RefCell::new(
+                BufferedDisplay::new(frame_buffer, frame_buffer_info)
+            ))
+        }
+    }
+}
+
 pub struct DisplayManager<'a> {
-    display: Rc<RefCell<Display<'a>>>,
+    display: Rc<RefCell<dyn DisplayApi + 'a>>,
     driver_manager: DisplayDriverManager<'a>
 } #[allow(dead_code)] impl<'a> DisplayManager<'a> {
-    pub fn new(frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
-        let display = Display::new(frame_buffer, frame_buffer_info);
+    pub fn new(display_type: DisplayType, frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
+        let display = display_type.new(frame_buffer, frame_buffer_info);
         let driver_manager = DisplayDriverManager::new();
-        Self {
-            display: Rc::new(RefCell::new(display)),
-            driver_manager
-        }
+
+        Self { display, driver_manager }
     }
 
     pub fn set_driver(&mut self, display_mode: DisplayMode) {

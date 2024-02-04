@@ -2,7 +2,6 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 
 use crate::api::display::{Color, DisplayApi, Size};
-use crate::systems::display::Display;
 
 pub struct DisplayDriverManager<'a> {
     pub current_driver: DisplayDriverType<'a>
@@ -11,7 +10,7 @@ pub struct DisplayDriverManager<'a> {
         current_driver: DisplayDriverType::Unknown
     } }
 
-    pub fn set_driver(&mut self, driver: DisplayDriverType<'a>, display: Rc<RefCell<Display<'a>>>) {
+    pub fn set_driver(&mut self, driver: DisplayDriverType<'a>, display: Rc<RefCell<dyn DisplayApi + 'a>>) {
         match &mut self.current_driver {
             DisplayDriverType::Dummy(ref mut driver) => {
                 driver.deactivate();
@@ -53,7 +52,7 @@ pub enum DisplayDriverType<'a> {
 }
 
 trait DisplayDriver<'a> {
-    fn activate(&mut self, display: Rc<RefCell<Display<'a>>>);
+    fn activate(&mut self, display: Rc<RefCell<dyn DisplayApi + 'a>>);
     fn deactivate(&mut self);
 }
 
@@ -75,21 +74,21 @@ pub trait CommonDisplayDriver<'a> {
     }
 
     fn new() -> Self;
-    fn get_display(&self) -> Option<&Rc<RefCell<Display<'a>>>>;
+    fn get_display(&self) -> Option<&Rc<RefCell<dyn DisplayApi + 'a>>>;
 }
 
 pub struct DummyDisplayDriver<'a> {
-    display: Option<Rc<RefCell<Display<'a>>>>,
+    display: Option<Rc<RefCell<dyn DisplayApi + 'a>>>,
 } impl<'a> CommonDisplayDriver<'a> for DummyDisplayDriver<'a> {
     fn new() -> Self { Self {
         display: None
     } }
 
-    fn get_display(&self) -> Option<&Rc<RefCell<Display<'a>>>> {
+    fn get_display(&self) -> Option<&Rc<RefCell<dyn DisplayApi + 'a>>> {
         self.display.as_ref()
     }
 } impl<'a> DisplayDriver<'a> for DummyDisplayDriver<'a> {
-    fn activate(&mut self, display: Rc<RefCell<Display<'a>>>) {
+    fn activate(&mut self, display: Rc<RefCell<dyn DisplayApi + 'a>>) {
         self.display = Some(display);
     }
 

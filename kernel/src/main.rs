@@ -16,12 +16,11 @@ use bootloader_api::{
 };
 use x86_64::VirtAddr;
 use crate::internal::memory::{BootInfoFrameAllocator, SimpleBootInfoFrameAllocator};
-
 use crate::kernel::Kernel;
-use crate::managers::display::{DisplayManager, DisplayMode};
+use crate::managers::display::{DisplayManager, DisplayMode, DisplayType};
 
-mod kernel;
 mod internal;
+mod kernel;
 
 mod api;
 mod systems;
@@ -57,16 +56,13 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         BootInfoFrameAllocator::new(&boot_info.memory_regions)
     };
     if let Err(_) = internal::allocator::init_main_heap(&mut mapper, &mut frame_allocator) {
-        panic!("Kernel heap initialization failed!");
+        panic!("Heap initialization failed!");
     }
     internal::allocator::init_allocator();
 
     if let Some(frame_buffer) = get_framebuffer() {
         if let Some(frame_buffer_info) = get_framebuffer_info() {
-            let mut display_manager = DisplayManager::new(
-                frame_buffer,
-                frame_buffer_info
-            );
+            let mut display_manager = DisplayManager::new(DisplayType::Buffered, frame_buffer, frame_buffer_info);
             display_manager.set_driver(DisplayMode::Dummy);
             display_manager.clear_screen();
 
@@ -82,7 +78,7 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
                 tick += 1;
             }
 
-            kernel.halt()
+            kernel.halt();
         } else { panic!("Frame buffer info not found!") }
     } else { panic!("Frame buffer not found!") }
 }

@@ -2,7 +2,7 @@ use crate::managers::display::DisplayManager;
 
 pub struct Kernel<'a> {
     display_manager: DisplayManager<'a>,
-    pub running: bool,
+    pub running: bool
 } impl<'a> Kernel<'a> {
     pub fn new(display_manager: DisplayManager<'a>) -> Self {
         Self { display_manager, running: true }
@@ -14,7 +14,7 @@ pub struct Kernel<'a> {
         self.display_manager.draw_all();
     }
 
-    pub fn halt(&mut self) -> ! {
+    pub fn halt(&self) -> ! {
         loop {}
     }
 }
