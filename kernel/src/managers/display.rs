@@ -8,6 +8,7 @@ use crate::drivers::display::{CommonDisplayDriver, DisplayDriverManager, Display
 use crate::drivers::display::text::{TextDisplayDriver, TextDisplayDriverArgs};
 use crate::systems::display::{BufferedDisplay, SimpleDisplay};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum DisplayMode {
     Unknown,
@@ -30,6 +31,7 @@ pub enum DisplayMode {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum DisplayType {
     Unknown,
@@ -51,17 +53,28 @@ pub enum DisplayType {
 
 pub struct DisplayManager<'a> {
     display: Rc<RefCell<dyn DisplayApi + 'a>>,
+    display_type: DisplayType,
     driver_manager: DisplayDriverManager<'a>
 } #[allow(dead_code)] impl<'a> DisplayManager<'a> {
     pub fn new(display_type: DisplayType, frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
         let display = display_type.new(frame_buffer, frame_buffer_info);
         let driver_manager = DisplayDriverManager::new();
 
-        Self { display, driver_manager }
+        Self { display, display_type, driver_manager }
     }
 
     pub fn set_mode(&mut self, display_mode: DisplayMode) {
         let driver = display_mode.get_driver(self.display.borrow().get_info());
+
+        match driver {
+            DisplayDriverType::Text(..) => {
+                let display_type = &self.display_type;
+                if display_type != &DisplayType::Buffered {
+                    panic!("Text mode is only supported with buffered display!");
+                }
+            }, _ => {}
+        }
+
         self.driver_manager.set_driver(driver, self.display.clone());
     }
 

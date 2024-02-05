@@ -1,5 +1,6 @@
 use alloc::borrow::ToOwned;
 use alloc::rc::Rc;
+use alloc::string::String;
 use core::cell::RefCell;
 use crate::api::display::{Color, Colors, DisplayApi, Fonts, Position, Size, TextAlignment, TextBaseline, TextLineHeight};
 use crate::drivers::display::{CommonDisplayDriver, DisplayDriver};
@@ -25,6 +26,7 @@ pub enum TextColor {
     Yellow = 14,
     White = 15,
 } impl TextColor {
+    #[inline]
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
             0 => Some(TextColor::Black),
@@ -78,10 +80,20 @@ pub struct ColorCode(u8); impl ColorCode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(C)]
-struct ScreenChar {
-    ascii_character: u8,
-    color_code: ColorCode,
+#[repr(transparent)]
+struct ScreenChar(u16); impl ScreenChar {
+    pub fn new(ascii_character: u8, color_code: ColorCode) -> Self {
+        let color_code_u16 = (color_code.0 as u16) << 8;
+        ScreenChar(color_code_u16 | ascii_character as u16)
+    }
+
+    pub fn ascii_character(&self) -> u8 {
+        (self.0 & 0xFF) as u8
+    }
+
+    pub fn color_code(&self) -> ColorCode {
+        ColorCode((self.0 >> 8) as u8)
+    }
 }
 
 const BUFFER_HEIGHT: usize = 25;
@@ -99,12 +111,14 @@ pub struct TextDisplayDriverArgs {
 pub struct TextDisplayDriver<'a> {
     display: Option<Rc<RefCell<dyn DisplayApi + 'a>>>,
     buffer: [ScreenChar; BUFFER_WIDTH * BUFFER_HEIGHT],
+    buffer_start: usize,
+    dirty_flags: [bool; BUFFER_WIDTH * BUFFER_HEIGHT],
     cursor_position: Position,
-    font: Option<Rc<RefCell<Fonts>>>,
+    font: Option<Fonts>,
     screen_size: Option<Size>
 } #[allow(dead_code)] impl TextDisplayDriver<'_> {
     pub fn init(&mut self, args: &mut TextDisplayDriverArgs) {
-        self.font = Some(args.font.clone());
+        self.font = Some(args.font.borrow().to_owned());
         self.screen_size = Some(args.screen_size);
     }
 
@@ -118,30 +132,39 @@ pub struct TextDisplayDriver<'a> {
 
                 let row = self.cursor_position.y;
                 let col = self.cursor_position.x;
-                let index = row * BUFFER_WIDTH + col;
+                let index = (self.buffer_start + row * BUFFER_WIDTH + col) % (BUFFER_WIDTH * BUFFER_HEIGHT);
 
-                self.buffer[index] = ScreenChar {
-                    ascii_character: byte,
-                    color_code: color
-                };
-                self.cursor_position.x += 1;
+                let current_char = self.buffer[index];
+                let byte_changed = current_char.ascii_character() != byte;
+                let color_changed = current_char.color_code() != color;
+
+                if byte_changed || color_changed {
+                    self.buffer[index] = ScreenChar::new(byte, color);
+                    self.dirty_flags[index] = true;
+                    self.cursor_position.x += 1;
+                }
             }
         }
     }
 
     pub fn write_string(&mut self, s: &str, color: ColorCode) {
+        let mut index = self.current_buffer_index();
         for byte in s.bytes() {
-            match byte {
-                0x20..=0x7e | b'\n' => self.write_byte(byte, color),
-                _ => self.write_byte(0xfe, color)
-            }
+            self.buffer[index] = ScreenChar::new(byte, color);
+            self.dirty_flags[index] = true;
+            self.advance_cursor();
+            index = self.current_buffer_index();
         }
     }
 
     pub fn write_line(&mut self, s: &str, color: ColorCode) {
         self.write_string(s, color);
-        for _ in self.cursor_position.x..BUFFER_WIDTH {
-            self.write_byte(b' ', color);
+        let remaining_spaces = BUFFER_WIDTH - self.cursor_position.x;
+        let start_index = self.current_buffer_index();
+        let blank = ScreenChar::new(b' ', color);
+        for i in 0..remaining_spaces {
+            self.buffer[start_index + i] = blank;
+            self.dirty_flags[start_index + i] = true;
         }
         self.new_line();
     }
@@ -149,10 +172,7 @@ pub struct TextDisplayDriver<'a> {
     pub fn clear_row(&mut self, row: usize, color: ColorCode) {
         let start_index = row * BUFFER_WIDTH;
         let end_index = start_index + BUFFER_WIDTH;
-        let blank = ScreenChar {
-            ascii_character: b' ',
-            color_code: color,
-        };
+        let blank = ScreenChar::new(b' ', color);
 
         for i in start_index..end_index {
             self.buffer[i] = blank;
@@ -171,27 +191,34 @@ pub struct TextDisplayDriver<'a> {
     }
 
     pub fn new_line(&mut self) {
-        if self.cursor_position.x >= BUFFER_WIDTH {
-            self.cursor_position.x = 0;
-        }
+        self.cursor_position.x = 0;
         if self.cursor_position.y < BUFFER_HEIGHT - 1 {
             self.cursor_position.y += 1;
         } else {
-            self.buffer.copy_within(BUFFER_WIDTH.., 0);
-            let clear_index = (BUFFER_HEIGHT - 1) * BUFFER_WIDTH;
-            self.buffer[clear_index..clear_index + BUFFER_WIDTH].fill(ScreenChar {
-                ascii_character: b' ',
-                color_code: ColorCode::new(TextColor::Black, TextColor::Black),
-            });
+            self.buffer_start = (self.buffer_start + BUFFER_WIDTH) % (BUFFER_WIDTH * BUFFER_HEIGHT);
+            self.clear_row(BUFFER_HEIGHT - 1, ColorCode::new(TextColor::Black, TextColor::Black));
+        }
+    }
+
+    fn current_buffer_index(&self) -> usize {
+        (self.buffer_start + self.cursor_position.y * BUFFER_WIDTH + self.cursor_position.x) % (BUFFER_WIDTH * BUFFER_HEIGHT)
+    }
+
+    fn advance_cursor(&mut self) {
+        self.cursor_position.x += 1;
+        if self.cursor_position.x >= BUFFER_WIDTH {
+            self.new_line();
         }
     }
 } impl<'a> CommonDisplayDriver<'a> for TextDisplayDriver<'a> {
     fn new() -> Self { Self {
         display: None,
-        buffer: [ScreenChar {
-            ascii_character: b' ',
-            color_code: ColorCode::new(TextColor::Black, TextColor::Black),
-        }; BUFFER_WIDTH * BUFFER_HEIGHT],
+        buffer: [ScreenChar::new(
+            b' ',
+            ColorCode::new(TextColor::Black, TextColor::Black)
+        ); BUFFER_WIDTH * BUFFER_HEIGHT],
+        buffer_start: 0,
+        dirty_flags: [true; BUFFER_WIDTH * BUFFER_HEIGHT],
         cursor_position: Position::new(0, 0),
         font: None,
         screen_size: None
@@ -199,26 +226,75 @@ pub struct TextDisplayDriver<'a> {
 
     fn draw_all(&mut self) {
         if let Some(display) = self.display.as_mut() {
-            if let Some(font) = self.font.as_ref() {
+            if let Some(font) = self.font {
                 let mut display = display.borrow_mut();
-                let font = font.borrow().to_owned();
-                let font_size = font.get_size();
 
-                for (i, &screen_char) in self.buffer.iter().enumerate() {
-                    let x = (i % BUFFER_WIDTH) * font_size.width;
-                    let y = (i / BUFFER_WIDTH) * font_size.height;
+                for row in 0..BUFFER_HEIGHT {
+                    let row_start = row * BUFFER_WIDTH;
+                    if self.dirty_flags[row_start..row_start + BUFFER_WIDTH].iter().any(|&dirty| dirty) {
+                        let mut segment_start = 0;
+                        let mut last_color = self.buffer[row_start].color_code();
 
-                    let text_color: Colors = TextColor::from_u8(screen_char.color_code.0 & 0x0f)
-                        .unwrap_or(TextColor::White).into();
-                    let background_color: Colors = TextColor::from_u8((screen_char.color_code.0 & 0xf0) >> 4)
-                        .unwrap_or(TextColor::Black).into();
+                        for col in 0..BUFFER_WIDTH {
+                            let index = (self.buffer_start + row_start + col) % (BUFFER_WIDTH * BUFFER_HEIGHT);
+                            let screen_char = self.buffer[index];
 
-                    display.draw_char(
-                        screen_char.ascii_character as char, Position::new(x, y),
-                        text_color.into(), Some(background_color.into()),
-                        font.into(), false, false,
-                        TextBaseline::Top, TextAlignment::Left, TextLineHeight::Half
-                    );
+                            if self.dirty_flags[index] {
+                                if col > segment_start {
+                                    let segment = self.buffer[row_start + segment_start..row_start + col].iter()
+                                        .map(|char| char.ascii_character() as char)
+                                        .collect::<String>();
+
+                                    let x = segment_start * font.get_size().width;
+                                    let y = row * font.get_size().height;
+
+                                    let text_color: Colors = TextColor::from_u8(
+                                        last_color.0 & 0x0F
+                                    ).unwrap_or(TextColor::White).into();
+                                    let text_color: Color = text_color.into();
+
+                                    let background_color: Colors = TextColor::from_u8(
+                                        last_color.0 >> 4
+                                    ).unwrap_or(TextColor::Black).into();
+                                    let background_color: Color = background_color.into();
+
+                                    display.draw_text(
+                                        &segment, Position::new(x, y),
+                                        text_color, Some(background_color),
+                                        font.into(), false, false,
+                                        TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
+                                    );
+                                }
+
+                                segment_start = col;
+                                last_color = screen_char.color_code();
+                            }
+                        }
+
+                        let segment = self.buffer[row_start + segment_start..row_start + BUFFER_WIDTH].iter()
+                            .map(|char| char.ascii_character() as char)
+                            .collect::<String>();
+
+                        let x = segment_start * font.get_size().width;
+                        let y = row * font.get_size().height;
+
+                        let text_color: Colors = TextColor::from_u8(
+                            last_color.0 & 0x0F
+                        ).unwrap_or(TextColor::White).into();
+                        let text_color: Color = text_color.into();
+
+                        let background_color: Colors = TextColor::from_u8(
+                            last_color.0 >> 4
+                        ).unwrap_or(TextColor::Black).into();
+                        let background_color: Color = background_color.into();
+
+                        display.draw_text(
+                            &segment, Position::new(x, y),
+                            text_color, Some(background_color),
+                            font.into(), false, false,
+                            TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
+                        );
+                    }
                 }
                 display.swap();
             } else { panic!("No font!"); }

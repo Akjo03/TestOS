@@ -12,6 +12,9 @@ fn main() {
     qemu.arg("-drive");
     qemu.arg(format!("format=raw,file={}", env!("BIOS_IMAGE")));
 
+    qemu.arg("-gdb");
+    qemu.arg("tcp::3333");
+
     let exit_status = qemu.status().unwrap();
     process::exit(exit_status.code().unwrap_or(-1));
 }
