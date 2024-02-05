@@ -177,27 +177,6 @@ pub struct TextDisplayDriver<'a> {
             }
         }
     }
-
-    pub fn write_panic(&mut self, message: &str) {
-        self.clear(Colors::Blue.into());
-        self.write_line(
-            "Kernel Panic -- please reboot your machine! See message below:",
-            ColorCode::new(TextColor::White, TextColor::Blue)
-        );
-        self.write_line(
-            "---------------------------------------------------------------",
-            ColorCode::new(TextColor::White, TextColor::Blue)
-        );
-        self.write_line(
-            message,
-            ColorCode::new(TextColor::White, TextColor::Blue)
-        );
-
-        if let Some(display) = self.display.as_mut() {
-            let mut display = display.borrow_mut();
-            display.swap();
-        } else { panic!("No display to write panic message to!"); }
-    }
 } impl<'a> CommonDisplayDriver<'a> for TextDisplayDriver<'a> {
     fn new() -> Self { Self {
         display: None,
