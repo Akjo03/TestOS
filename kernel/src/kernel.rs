@@ -19,7 +19,12 @@ pub struct Kernel<'a> {
     pub fn tick(&mut self, tick: u64) {
         match self.display_manager.get_driver() {
             DisplayDriverType::Text(driver, ..) => {
-                driver.write_string(tick.to_string().as_str(), ColorCode::new(TextColor::White, TextColor::Black));
+                if (tick % 2) == 0 {
+                    driver.write_string(tick.to_string().as_str(), ColorCode::new(TextColor::LightRed, TextColor::Black));
+                } else {
+                    driver.new_line();
+                    driver.write_string(tick.to_string().as_str(), ColorCode::new(TextColor::LightGreen, TextColor::Black));
+                }
                 driver.draw_all();
                 driver.clear_buffer(ColorCode::new(TextColor::Black, TextColor::Black))
             },
