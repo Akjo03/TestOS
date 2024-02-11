@@ -95,7 +95,8 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
                 ), SerialLoggingLevel::Info);
 
                 let mut kernel = Kernel::new(
-                    display_manager
+                    display_manager,
+                    serial_port
                 );
 
                 kernel.init();

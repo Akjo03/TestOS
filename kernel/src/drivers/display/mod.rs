@@ -87,7 +87,7 @@ pub struct DummyDisplayDriver<'a> {
             display.draw_text(
                 "Kernel Panic -- please reboot your machine! See message below:", Position::new(0, 0),
                 Colors::White.into(), None,
-                Fonts::Font9x18.into(), false, false,
+                Fonts::default().into(), false, false,
                 TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
             );
             display.draw_text(
