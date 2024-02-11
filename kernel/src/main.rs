@@ -57,10 +57,6 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
         let phys_mem_offset = VirtAddr::new(*physical_memory_offset);
         let mut mapper = unsafe { internal::memory::init(phys_mem_offset) };
 
-        serial_port.log(format_args!("Initialized memory mapper with physical memory offset {:#x} and with {} memory regions.",
-            phys_mem_offset.as_u64(), boot_info.memory_regions.len()
-        ), SerialLoggingLevel::Info);
-
         let mut simple_frame_allocator = unsafe {
             SimpleBootInfoFrameAllocator::new(&boot_info.memory_regions)
         };
@@ -115,18 +111,6 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    if let Some(serial_port) = get_serial_port() {
-        if let Some(payload) = info.payload().downcast_ref::<&str>() {
-            serial_port.log(format_args!("Panic: {}\n", payload), SerialLoggingLevel::Error);
-        } else if let Some(payload) = info.payload().downcast_ref::<String>() {
-            serial_port.log(format_args!("Panic: {}\n", payload), SerialLoggingLevel::Error);
-        } else if let Some(message) = info.message() {
-            if let Some(message_str) = message.as_str() {
-                serial_port.log(format_args!("Panic: {}\n", message_str), SerialLoggingLevel::Error);
-            }
-        }
-    }
-
     if let Some(frame_buffer) = get_framebuffer() {
         if let Some(frame_buffer_info) = get_framebuffer_info() {
             let mut display_manager = DisplayManager::new(DisplayType::Simple, frame_buffer, frame_buffer_info);
@@ -153,6 +137,17 @@ fn panic(info: &PanicInfo) -> ! {
                         driver.draw_panic("No message provided!");
                     }
                 }, _ => {}
+            }
+        }
+    }
+    if let Some(serial_port) = get_serial_port() {
+        if let Some(payload) = info.payload().downcast_ref::<&str>() {
+            serial_port.log(format_args!("{}", payload), SerialLoggingLevel::Panic);
+        } else if let Some(payload) = info.payload().downcast_ref::<String>() {
+            serial_port.log(format_args!("{}", payload), SerialLoggingLevel::Panic);
+        } else if let Some(message) = info.message() {
+            if let Some(message_str) = message.as_str() {
+                serial_port.log(format_args!("{}", message_str), SerialLoggingLevel::Panic);
             }
         }
     }

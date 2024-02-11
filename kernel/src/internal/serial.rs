@@ -3,15 +3,19 @@ use core::fmt::Write;
 
 #[allow(dead_code)]
 pub enum SerialLoggingLevel {
+    Debug,
     Info,
     Warning,
-    Error
+    Error,
+    Panic
 } impl SerialLoggingLevel {
     pub fn as_str(&self) -> &'static str {
         match self {
+            Self::Debug => "DEBUG",
             Self::Info => "INFO",
             Self::Warning => "WARNING",
-            Self::Error => "ERROR"
+            Self::Error => "ERROR",
+            Self::Panic => "PANIC"
         }
     }
 }

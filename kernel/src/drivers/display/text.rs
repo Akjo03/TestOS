@@ -258,6 +258,39 @@ pub struct TextDisplayDriver<'a> {
     }
 
 
+    pub fn fill(&mut self, character: char) {
+        let screen_char = ScreenChar::new(
+            character,
+            ColorCode::new(self.text_color, self.background_color),
+            CharacterAttributes::new(self.underline, self.strikethrough)
+        );
+
+        for row in 0..BUFFER_HEIGHT {
+            for col in 0..BUFFER_WIDTH {
+                let index = row * BUFFER_WIDTH + col;
+                self.text_buffer[index] = screen_char;
+                self.dirty_buffer[index] = true;
+            }
+        }
+    }
+
+    pub fn fill_region(&mut self, region: Region, character: char) {
+        let screen_char = ScreenChar::new(
+            character,
+            ColorCode::new(self.text_color, self.background_color),
+            CharacterAttributes::new(self.underline, self.strikethrough)
+        );
+
+        for row in region.position.y..(region.position.y + region.size.height) {
+            for col in region.position.x..(region.position.x + region.size.width) {
+                let index = row * BUFFER_WIDTH + col;
+                self.text_buffer[index] = screen_char;
+                self.dirty_buffer[index] = true;
+            }
+        }
+    }
+
+
     pub fn scroll(&mut self, lines: usize, direction: ScrollDirection) {
         if lines == 0 { return; }
 
@@ -282,9 +315,7 @@ pub struct TextDisplayDriver<'a> {
                     }
                 }
 
-                self.move_cursor(Position::new(
-                    0, self.text_cursor.y.saturating_sub(lines)
-                ));
+                self.move_cursor(Position::new(self.text_cursor.x, self.text_cursor.y - lines));
             }, ScrollDirection::Down => {
                 for row in (lines..BUFFER_HEIGHT).rev() {
                     for col in 0..BUFFER_WIDTH {
@@ -340,12 +371,9 @@ pub struct TextDisplayDriver<'a> {
                 }, (false, true) => {
                     new_position.x = 0;
                     new_position.y += 1;
-                }, (true, false) => {
-                    self.scroll(1, ScrollDirection::Up)
-                }, (false, false) => {
+                }, _ => {
                     self.scroll(1, ScrollDirection::Up);
-                    new_position.x = 0;
-                    new_position.y = BUFFER_HEIGHT - 1;
+                    new_position = self.text_cursor;
                 }
             }
         }
