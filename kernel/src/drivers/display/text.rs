@@ -1,304 +1,541 @@
-use alloc::borrow::ToOwned;
+use alloc::borrow::{Cow, ToOwned};
 use alloc::rc::Rc;
-use alloc::string::String;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::cell::RefCell;
-use crate::api::display::{Color, Colors, DisplayApi, Fonts, Position, Size, TextAlignment, TextBaseline, TextLineHeight};
+use embedded_graphics::mono_font::MonoFont;
+use crate::api::display::{Color, Colors, DisplayApi, Fonts, Position, Region, Size, TextAlignment, TextBaseline, TextLineHeight};
 use crate::drivers::display::{CommonDisplayDriver, DisplayDriver};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum TextColor {
-    Black = 0,
-    Blue = 1,
-    Green = 2,
-    Cyan = 3,
-    Red = 4,
-    Magenta = 5,
-    Brown = 6,
-    LightGray = 7,
-    DarkGray = 8,
-    LightBlue = 9,
-    LightGreen = 10,
-    LightCyan = 11,
-    LightRed = 12,
-    Pink = 13,
-    Yellow = 14,
-    White = 15,
+    Black = 0, Gray = 8,
+    Maroon = 1, Red = 9,
+    Green = 2, Lime = 10,
+    Olive = 3, Yellow = 11,
+    Navy = 4, Blue = 12,
+    Purple = 5, Fuchsia = 13,
+    Teal = 6, Aqua = 14,
+    Silver = 7, White = 15
 } impl TextColor {
     #[inline]
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(TextColor::Black),
-            1 => Some(TextColor::Blue),
-            2 => Some(TextColor::Green),
-            3 => Some(TextColor::Cyan),
-            4 => Some(TextColor::Red),
-            5 => Some(TextColor::Magenta),
-            6 => Some(TextColor::Brown),
-            7 => Some(TextColor::LightGray),
-            8 => Some(TextColor::DarkGray),
-            9 => Some(TextColor::LightBlue),
-            10 => Some(TextColor::LightGreen),
-            11 => Some(TextColor::LightCyan),
-            12 => Some(TextColor::LightRed),
-            13 => Some(TextColor::Pink),
-            14 => Some(TextColor::Yellow),
-            15 => Some(TextColor::White),
+            0 => Some(TextColor::Black), 8 => Some(TextColor::Gray),
+            1 => Some(TextColor::Maroon), 9 => Some(TextColor::Red),
+            2 => Some(TextColor::Green), 10 => Some(TextColor::Lime),
+            3 => Some(TextColor::Olive), 11 => Some(TextColor::Yellow),
+            4 => Some(TextColor::Navy), 12 => Some(TextColor::Blue),
+            5 => Some(TextColor::Purple), 13 => Some(TextColor::Fuchsia),
+            6 => Some(TextColor::Teal), 14 => Some(TextColor::Aqua),
+            7 => Some(TextColor::Silver), 15 => Some(TextColor::White),
             _ => None
         }
     }
-} impl Into<Colors> for TextColor {
-    fn into(self) -> Colors {
+} impl Into<Color> for TextColor {
+    fn into(self) -> Color {
         match self {
-            TextColor::Black => Colors::Black,
-            TextColor::Blue => Colors::Navy,
-            TextColor::Green => Colors::Green,
-            TextColor::Cyan => Colors::Teal,
-            TextColor::Red => Colors::Maroon,
-            TextColor::Magenta => Colors::Purple,
-            TextColor::Brown => Colors::Brown,
-            TextColor::LightGray => Colors::Silver,
-            TextColor::DarkGray => Colors::Gray,
-            TextColor::LightBlue => Colors::Navy,
-            TextColor::LightGreen => Colors::Lime,
-            TextColor::LightCyan => Colors::Aqua,
-            TextColor::LightRed => Colors::Red,
-            TextColor::Pink => Colors::Fuchsia,
-            TextColor::Yellow => Colors::Yellow,
-            TextColor::White => Colors::White,
+            TextColor::Black => Colors::Black.into(),
+            TextColor::Maroon => Colors::Maroon.into(),
+            TextColor::Green => Colors::Green.into(),
+            TextColor::Olive => Colors::Olive.into(),
+            TextColor::Navy => Colors::Navy.into(),
+            TextColor::Purple => Colors::Purple.into(),
+            TextColor::Teal => Colors::Teal.into(),
+            TextColor::Silver => Colors::Silver.into(),
+            TextColor::Gray => Colors::Gray.into(),
+            TextColor::Red => Colors::Red.into(),
+            TextColor::Lime => Colors::Lime.into(),
+            TextColor::Yellow => Colors::Yellow.into(),
+            TextColor::Blue => Colors::Blue.into(),
+            TextColor::Fuchsia => Colors::Fuchsia.into(),
+            TextColor::Aqua => Colors::Aqua.into(),
+            TextColor::White => Colors::White.into()
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct ColorCode(u8); impl ColorCode {
-    pub fn new(foreground: TextColor, background: TextColor) -> ColorCode {
-        ColorCode((background as u8) << 4 | (foreground as u8))
+struct ColorCode(u8); impl ColorCode {
+    #[inline]
+    pub fn new(foreground: TextColor, background: TextColor) -> Self {
+        Self((background as u8) << 4 | (foreground as u8))
+    }
+
+    #[inline]
+    pub fn foreground(&self) -> TextColor {
+        TextColor::from_u8(self.0 & 0xF).unwrap()
+    }
+
+    #[inline]
+    pub fn background(&self) -> TextColor {
+        TextColor::from_u8((self.0 >> 4) & 0xF).unwrap()
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-struct ScreenChar(u16); impl ScreenChar {
-    pub fn new(ascii_character: u8, color_code: ColorCode) -> Self {
-        let color_code_u16 = (color_code.0 as u16) << 8;
-        ScreenChar(color_code_u16 | ascii_character as u16)
+struct CharacterAttributes(u8); impl CharacterAttributes {
+    #[inline]
+    pub fn new(underline: bool, strikethrough: bool) -> Self {
+        let mut value = 0;
+        if underline { value |= 1; }
+        if strikethrough { value |= 2; }
+        Self(value)
     }
 
-    pub fn ascii_character(&self) -> u8 {
-        (self.0 & 0xFF) as u8
+    #[inline]
+    pub fn underline(&self) -> bool {
+        self.0 & 1 != 0
     }
 
-    pub fn color_code(&self) -> ColorCode {
-        ColorCode((self.0 >> 8) as u8)
+    #[inline]
+    pub fn strikethrough(&self) -> bool {
+        self.0 & 2 != 0
     }
 }
 
-const BUFFER_HEIGHT: usize = 25;
-const BUFFER_WIDTH: usize = 80;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(transparent)]
+struct ScreenChar(u32); impl ScreenChar {
+    #[inline]
+    pub fn new(character: char, color: ColorCode, attributes: CharacterAttributes) -> Self {
+        Self((character as u32) | ((color.0 as u32) << 8) | ((attributes.0 as u32) << 16))
+    }
+
+    #[inline]
+    pub fn character(&self) -> char {
+        (self.0 & 0xFF) as u8 as char
+    }
+
+    #[inline]
+    pub fn color(&self) -> ColorCode {
+        ColorCode((self.0 >> 8) as u8)
+    }
+
+    #[inline]
+    pub fn attributes(&self) -> CharacterAttributes {
+        CharacterAttributes((self.0 >> 16) as u8)
+    }
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextSegment {
+    pub text: Cow<'static, str>,
+    pub text_position: Position,
+    pub text_color: TextColor,
+    pub background_color: TextColor,
+    pub underline: bool,
+    pub strikethrough: bool
+} impl TextSegment {
+    #[inline]
+    pub fn new(
+        text: impl Into<Cow<'static, str>>, text_position: Position,
+        text_color: TextColor, background_color: TextColor,
+        underline: bool, strikethrough: bool
+    ) -> Self { Self {
+        text: text.into(), text_position,
+        text_color, background_color,
+        underline, strikethrough
+    } }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScrollDirection {
+    Up, Down
+}
+
+pub const BUFFER_WIDTH: usize = 80;
+pub const BUFFER_HEIGHT: usize = 25;
 
 pub struct TextDisplayDriverArgs {
     font: Rc<RefCell<Fonts>>,
-    screen_size: Size
 } #[allow(dead_code)] impl TextDisplayDriverArgs {
-    pub fn new(font: Rc<RefCell<Fonts>>, screen_size: Size) -> Self {
-        Self { font, screen_size }
+    pub fn new(font: Rc<RefCell<Fonts>>) -> Self {
+        Self { font }
     }
 }
 
 pub struct TextDisplayDriver<'a> {
     display: Option<Rc<RefCell<dyn DisplayApi + 'a>>>,
-    buffer: [ScreenChar; BUFFER_WIDTH * BUFFER_HEIGHT],
-    buffer_start: usize,
-    dirty_flags: [bool; BUFFER_WIDTH * BUFFER_HEIGHT],
-    cursor_position: Position,
     font: Option<Fonts>,
-    screen_size: Option<Size>
+    text_buffer: [ScreenChar; BUFFER_WIDTH * BUFFER_HEIGHT],
+    text_cursor: Position,
+    dirty_buffer: [bool; BUFFER_WIDTH * BUFFER_HEIGHT],
+    text_color: TextColor,
+    background_color: TextColor,
+    underline: bool,
+    strikethrough: bool
 } #[allow(dead_code)] impl TextDisplayDriver<'_> {
     pub fn init(&mut self, args: &mut TextDisplayDriverArgs) {
         self.font = Some(args.font.borrow().to_owned());
-        self.screen_size = Some(args.screen_size);
     }
 
-    pub fn write_byte(&mut self, byte: u8, color: ColorCode) {
-        match byte {
-            b'\n' => self.new_line(),
-            byte => {
-                if self.cursor_position.x >= BUFFER_WIDTH {
-                    self.new_line();
+
+    pub fn write_char(&mut self, character: char) {
+        match character {
+            '\n' => self.new_line(),
+            '\r' => self.move_cursor(Position::new(0, self.text_cursor.y)),
+            '\t' => self.move_cursor(Position::new(self.text_cursor.x + 4, self.text_cursor.y)),
+            _ => {
+                self.write(ScreenChar::new(
+                    character,
+                    ColorCode::new(self.text_color, self.background_color),
+                    CharacterAttributes::new(self.underline, self.strikethrough)
+                ))
+            }
+        }
+    }
+
+    pub fn write_string(&mut self, text: &str) {
+        for character in text.chars() {
+            self.write_char(character);
+        }
+    }
+
+    pub fn write_line(&mut self, text: &str) {
+        self.write_string(text);
+        self.new_line();
+    }
+
+    pub fn new_line(&mut self) {
+        self.move_cursor(Position::new(0, self.text_cursor.y + 1));
+    }
+
+
+    #[inline]
+    pub fn set_text_color(&mut self, color: TextColor) {
+        self.text_color = color;
+    }
+
+    #[inline]
+    pub fn set_background_color(&mut self, color: TextColor) {
+        self.background_color = color;
+    }
+
+    #[inline]
+    pub fn set_underline(&mut self, underline: bool) {
+        self.underline = underline;
+    }
+
+    #[inline]
+    pub fn set_strikethrough(&mut self, strikethrough: bool) {
+        self.strikethrough = strikethrough;
+    }
+
+
+    #[inline]
+    pub fn move_cursor(&mut self, position: Position) {
+        self.text_cursor = position;
+    }
+
+    #[inline]
+    pub fn get_cursor_position(&self) -> Position {
+        self.text_cursor
+    }
+
+
+    pub fn clear_cell(&mut self, row: usize, col: usize) {
+        let index = row * BUFFER_WIDTH + col;
+        self.text_buffer[index] = ScreenChar::new(
+            ' ',
+            ColorCode::new(self.background_color, self.background_color),
+            CharacterAttributes::new(false, false),
+        );
+        self.dirty_buffer[index] = true;
+    }
+
+    pub fn clear_buffer(&mut self) {
+        self.text_buffer.fill(ScreenChar::new(
+            ' ',
+            ColorCode::new(TextColor::Black, TextColor::Black),
+            CharacterAttributes::new(false, false)
+        ));
+        self.move_cursor(Position::new(0, 0));
+    }
+
+
+    pub fn scroll(&mut self, lines: usize, direction: ScrollDirection) {
+        if lines == 0 { return; }
+
+        if lines >= BUFFER_HEIGHT {
+            self.clear_buffer();
+            return;
+        }
+
+        match direction {
+            ScrollDirection::Up => {
+                for row in 0..(BUFFER_HEIGHT - lines) {
+                    for col in 0..BUFFER_WIDTH {
+                        let from_index = (row + lines) * BUFFER_WIDTH + col;
+                        let to_index = row * BUFFER_WIDTH + col;
+                        self.text_buffer[to_index] = self.text_buffer[from_index];
+                        self.dirty_buffer[to_index] = true;
+                    }
+                }
+                for row in (BUFFER_HEIGHT - lines)..BUFFER_HEIGHT {
+                    for col in 0..BUFFER_WIDTH {
+                        self.clear_cell(row, col);
+                    }
                 }
 
-                let row = self.cursor_position.y;
-                let col = self.cursor_position.x;
-                let index = (self.buffer_start + row * BUFFER_WIDTH + col) % (BUFFER_WIDTH * BUFFER_HEIGHT);
-
-                let current_char = self.buffer[index];
-                let byte_changed = current_char.ascii_character() != byte;
-                let color_changed = current_char.color_code() != color;
-
-                if byte_changed || color_changed {
-                    self.buffer[index] = ScreenChar::new(byte, color);
-                    self.dirty_flags[index] = true;
-                    self.cursor_position.x += 1;
+                self.move_cursor(Position::new(
+                    0, self.text_cursor.y.saturating_sub(lines)
+                ));
+            }, ScrollDirection::Down => {
+                for row in (lines..BUFFER_HEIGHT).rev() {
+                    for col in 0..BUFFER_WIDTH {
+                        let from_index = (row - lines) * BUFFER_WIDTH + col;
+                        let to_index = row * BUFFER_WIDTH + col;
+                        self.text_buffer[to_index] = self.text_buffer[from_index];
+                        self.dirty_buffer[to_index] = true;
+                    }
+                }
+                for row in 0..lines {
+                    for col in 0..BUFFER_WIDTH {
+                        self.clear_cell(row, col);
+                    }
                 }
             }
         }
     }
 
-    pub fn write_string(&mut self, s: &str, color: ColorCode) {
-        let mut index = self.current_buffer_index();
-        for byte in s.bytes() {
-            self.buffer[index] = ScreenChar::new(byte, color);
-            self.dirty_flags[index] = true;
-            self.advance_cursor();
-            index = self.current_buffer_index();
-        }
+
+    pub fn init_redraw(&mut self) {
+        self.dirty_buffer.fill(true);
     }
 
-    pub fn write_line(&mut self, s: &str, color: ColorCode) {
-        self.write_string(s, color);
-        let remaining_spaces = BUFFER_WIDTH - self.cursor_position.x;
-        let start_index = self.current_buffer_index();
-        let blank = ScreenChar::new(b' ', color);
-        for i in 0..remaining_spaces {
-            self.buffer[start_index + i] = blank;
-            self.dirty_flags[start_index + i] = true;
-        }
-        self.new_line();
+    #[inline]
+    pub fn validate_position(&mut self, position: Position) -> (bool, bool) {
+        (position.x < BUFFER_WIDTH, position.y < BUFFER_HEIGHT)
     }
 
-    pub fn clear_row(&mut self, row: usize, color: ColorCode) {
-        let start_index = row * BUFFER_WIDTH;
-        let end_index = start_index + BUFFER_WIDTH;
-        let blank = ScreenChar::new(b' ', color);
+    #[inline]
+    pub fn validate_region(&mut self, region: Region) -> bool {
+        let (x_valid, y_valid) = self.validate_position(region.position);
 
-        for i in start_index..end_index {
-            self.buffer[i] = blank;
-        }
+        let end_x = region.position.x + region.size.width;
+        let end_y = region.position.y + region.size.height;
 
-        if row == self.cursor_position.y {
-            self.cursor_position.x = 0;
-        }
+        let x_valid_end = end_x < BUFFER_WIDTH;
+        let y_valid_end = end_y < BUFFER_HEIGHT;
+
+        x_valid && y_valid && x_valid_end && y_valid_end
     }
 
-    pub fn clear_buffer(&mut self, color: ColorCode) {
-        for row in 0..BUFFER_HEIGHT {
-            self.clear_row(row, color);
+
+    #[inline]
+    fn write(&mut self, character: ScreenChar) {
+        let mut new_position = self.text_cursor;
+
+        loop {
+            match self.validate_position(new_position) {
+                (true, true) => {
+                    self.write_at(character, new_position);
+                    new_position.x += 1;
+                    break;
+                }, (false, true) => {
+                    new_position.x = 0;
+                    new_position.y += 1;
+                }, (true, false) => {
+                    self.scroll(1, ScrollDirection::Up)
+                }, (false, false) => {
+                    self.scroll(1, ScrollDirection::Up);
+                    new_position.x = 0;
+                    new_position.y = BUFFER_HEIGHT - 1;
+                }
+            }
         }
-        self.cursor_position = Position::new(0, 0);
+
+        self.move_cursor(new_position);
     }
 
-    pub fn new_line(&mut self) {
-        self.cursor_position.x = 0;
-        if self.cursor_position.y < BUFFER_HEIGHT - 1 {
-            self.cursor_position.y += 1;
-        } else {
-            self.buffer_start = (self.buffer_start + BUFFER_WIDTH) % (BUFFER_WIDTH * BUFFER_HEIGHT);
-            self.clear_row(BUFFER_HEIGHT - 1, ColorCode::new(TextColor::Black, TextColor::Black));
-        }
+    #[inline]
+    fn write_at(&mut self, character: ScreenChar, position: Position) {
+        let index = position.y * BUFFER_WIDTH + position.x;
+        self.text_buffer[index] = character;
+        self.dirty_buffer[index] = true;
     }
 
-    fn current_buffer_index(&self) -> usize {
-        (self.buffer_start + self.cursor_position.y * BUFFER_WIDTH + self.cursor_position.x) % (BUFFER_WIDTH * BUFFER_HEIGHT)
+
+    fn get_text_segments(&mut self) -> Vec<TextSegment> {
+        let mut segments = Vec::new();
+        let dirty_regions = self.get_dirty_regions();
+
+        for region in dirty_regions.iter() {
+            let start_x = region.position.x;
+            let start_y = region.position.y;
+            let end_x = start_x + region.size.width;
+            let end_y = start_y + region.size.height;
+
+            let mut current_text = String::new();
+            let mut current_position = Position::new(start_x, start_y);
+            let mut current_text_color = self.text_color;
+            let mut current_background_color = self.background_color;
+            let mut current_underline = false;
+            let mut current_strikethrough = false;
+            let mut last_x = start_x;
+
+            for y in start_y..end_y {
+                for x in start_x..end_x {
+                    if x == 0 && last_x != 0 && !current_text.is_empty() {
+                        segments.push(TextSegment::new(
+                            current_text.clone(), current_position,
+                            current_text_color, current_background_color,
+                            current_underline, current_strikethrough
+                        ));
+                        current_text.clear();
+                    }
+
+                    let index = y * BUFFER_WIDTH + x;
+                    let screen_char = self.text_buffer[index];
+                    let char_color = screen_char.color();
+                    let char_attributes = screen_char.attributes();
+
+                    if current_text.is_empty() {
+                        current_text_color = char_color.foreground();
+                        current_background_color = char_color.background();
+                        current_underline = char_attributes.underline();
+                        current_strikethrough = char_attributes.strikethrough();
+                        current_text.push(screen_char.character());
+                        current_position = Position::new(x, y);
+                    } else if (current_text_color != char_color.foreground() || current_background_color != char_color.background() ||
+                        current_underline != char_attributes.underline() || current_strikethrough != char_attributes.strikethrough()) &&
+                        (current_text_color == TextColor::Black && current_background_color == TextColor::Black) {
+                        segments.push(TextSegment::new(
+                            current_text.clone(), current_position,
+                            current_text_color, current_background_color,
+                            current_underline, current_strikethrough
+                        ));
+
+                        current_text = screen_char.character().to_string();
+                        current_position = Position::new(x, y);
+                        current_text_color = char_color.foreground();
+                        current_background_color = char_color.background();
+                        current_underline = char_attributes.underline();
+                        current_strikethrough = char_attributes.strikethrough();
+                    } else {
+                        current_text.push(screen_char.character());
+                    }
+
+                    last_x = x;
+                }
+                if !current_text.is_empty() {
+                    segments.push(TextSegment::new(
+                        current_text.clone(), current_position,
+                        current_text_color, current_background_color,
+                        current_underline, current_strikethrough
+                    ));
+                    current_text.clear();
+                }
+                last_x = 0;
+            }
+        }
+
+        segments
     }
 
-    fn advance_cursor(&mut self) {
-        self.cursor_position.x += 1;
-        if self.cursor_position.x >= BUFFER_WIDTH {
-            self.new_line();
+    pub fn get_dirty_regions(&mut self) -> Vec<Region> {
+        let mut regions = Vec::new();
+        let mut visited = [false; BUFFER_WIDTH * BUFFER_HEIGHT];
+
+        for y in 0..BUFFER_HEIGHT {
+            for x in 0..BUFFER_WIDTH {
+                let index = y * BUFFER_WIDTH + x;
+                if self.dirty_buffer[index] && !visited[index] {
+                    let mut bounds = (x, x, y, y);
+                    self.dfs(x, y, &mut visited, &mut bounds);
+
+                    let region = Region::new(
+                        Position::new(bounds.0, bounds.2),
+                        Size::new(bounds.1 - bounds.0 + 1, bounds.3 - bounds.2 + 1),
+                    );
+                    regions.push(region);
+                }
+            }
         }
+
+        regions
+    }
+
+    fn dfs(&mut self, x: usize, y: usize, visited: &mut [bool; BUFFER_WIDTH * BUFFER_HEIGHT], bounds: &mut (usize, usize, usize, usize)) {
+        let index = y * BUFFER_WIDTH + x;
+        if x >= BUFFER_WIDTH || y >= BUFFER_HEIGHT || visited[index] || !self.dirty_buffer[index] {
+            return;
+        }
+
+        visited[index] = true;
+        bounds.0 = bounds.0.min(x);
+        bounds.1 = bounds.1.max(x);
+        bounds.2 = bounds.2.min(y);
+        bounds.3 = bounds.3.max(y);
+
+        if x > 0 { self.dfs(x - 1, y, visited, bounds); }
+        if x < BUFFER_WIDTH - 1 { self.dfs(x + 1, y, visited, bounds); }
+        if y > 0 { self.dfs(x, y - 1, visited, bounds); }
+        if y < BUFFER_HEIGHT - 1 { self.dfs(x, y + 1, visited, bounds); }
+    }
+
+
+    fn map_position(&mut self, text_position: Position) -> Position {
+        if let Some(font) = self.font.as_ref() {
+            let font: MonoFont = (*font).into();
+
+            let screen_x = text_position.x * font.character_size.width as usize;
+            let screen_y = text_position.y * font.character_size.height as usize;
+            return Position::new(screen_x, screen_y);
+        }
+
+        Position::new(0, 0)
     }
 } impl<'a> CommonDisplayDriver<'a> for TextDisplayDriver<'a> {
     fn new() -> Self { Self {
         display: None,
-        buffer: [ScreenChar::new(
-            b' ',
-            ColorCode::new(TextColor::Black, TextColor::Black)
-        ); BUFFER_WIDTH * BUFFER_HEIGHT],
-        buffer_start: 0,
-        dirty_flags: [true; BUFFER_WIDTH * BUFFER_HEIGHT],
-        cursor_position: Position::new(0, 0),
         font: None,
-        screen_size: None
+        text_buffer: [ScreenChar::new(
+            ' ',
+            ColorCode::new(TextColor::Black, TextColor::Black),
+            CharacterAttributes::new(false, false)
+        ); BUFFER_WIDTH * BUFFER_HEIGHT],
+        text_cursor: Position::new(0, 0),
+        dirty_buffer: [false; BUFFER_WIDTH * BUFFER_HEIGHT],
+        text_color: TextColor::White,
+        background_color: TextColor::Black,
+        underline: false,
+        strikethrough: false
     } }
 
     fn draw_all(&mut self) {
-        if let Some(display) = self.display.as_mut() {
-            if let Some(font) = self.font {
-                let mut display = display.borrow_mut();
+        let segments = self.get_text_segments();
 
-                for row in 0..BUFFER_HEIGHT {
-                    let row_start = row * BUFFER_WIDTH;
-                    if self.dirty_flags[row_start..row_start + BUFFER_WIDTH].iter().any(|&dirty| dirty) {
-                        let mut segment_start = 0;
-                        let mut last_color = self.buffer[row_start].color_code();
+        let pre_calculated_positions: Vec<(Cow<'static, str>, Position, Color, Color, bool, bool)> = segments.iter().map(|segment| {
+            let screen_position = self.map_position(segment.text_position);
+            let text_color: Color = segment.text_color.into();
+            let background_color: Color = segment.background_color.into();
+            (segment.text.clone(), screen_position, text_color, background_color, segment.underline, segment.strikethrough)
+        }).collect();
 
-                        for col in 0..BUFFER_WIDTH {
-                            let index = (self.buffer_start + row_start + col) % (BUFFER_WIDTH * BUFFER_HEIGHT);
-                            let screen_char = self.buffer[index];
+        let display_opt = self.display.as_mut();
+        let font_opt = self.font.as_ref();
 
-                            if self.dirty_flags[index] {
-                                if col > segment_start {
-                                    let segment = self.buffer[row_start + segment_start..row_start + col].iter()
-                                        .map(|char| char.ascii_character() as char)
-                                        .collect::<String>();
+        if let (Some(display), Some(font)) = (display_opt, font_opt) {
+            let mut display = display.borrow_mut();
+            let font: MonoFont = (*font).into();
 
-                                    let x = segment_start * font.get_size().width;
-                                    let y = row * font.get_size().height;
+            for (text, screen_position, text_color, background_color, underline, strikethrough) in pre_calculated_positions {
+                display.draw_text(
+                    &text, screen_position,
+                    text_color, Some(background_color),
+                    font, underline, strikethrough,
+                    TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
+                );
+            }
 
-                                    let text_color: Colors = TextColor::from_u8(
-                                        last_color.0 & 0x0F
-                                    ).unwrap_or(TextColor::White).into();
-                                    let text_color: Color = text_color.into();
-
-                                    let background_color: Colors = TextColor::from_u8(
-                                        last_color.0 >> 4
-                                    ).unwrap_or(TextColor::Black).into();
-                                    let background_color: Color = background_color.into();
-
-                                    display.draw_text(
-                                        &segment, Position::new(x, y),
-                                        text_color, Some(background_color),
-                                        font.into(), false, false,
-                                        TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
-                                    );
-                                }
-
-                                segment_start = col;
-                                last_color = screen_char.color_code();
-                            }
-                        }
-
-                        let segment = self.buffer[row_start + segment_start..row_start + BUFFER_WIDTH].iter()
-                            .map(|char| char.ascii_character() as char)
-                            .collect::<String>();
-
-                        let x = segment_start * font.get_size().width;
-                        let y = row * font.get_size().height;
-
-                        let text_color: Colors = TextColor::from_u8(
-                            last_color.0 & 0x0F
-                        ).unwrap_or(TextColor::White).into();
-                        let text_color: Color = text_color.into();
-
-                        let background_color: Colors = TextColor::from_u8(
-                            last_color.0 >> 4
-                        ).unwrap_or(TextColor::Black).into();
-                        let background_color: Color = background_color.into();
-
-                        display.draw_text(
-                            &segment, Position::new(x, y),
-                            text_color, Some(background_color),
-                            font.into(), false, false,
-                            TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
-                        );
-                    }
-                }
-                display.swap();
-            } else { panic!("No font!"); }
-        } else { panic!("No display to draw to!"); }
+            display.swap();
+        }
     }
 
     fn clear(&mut self, color: Color) {

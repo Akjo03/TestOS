@@ -6,7 +6,8 @@ use embedded_graphics::{
     },
     pixelcolor::Rgb888, text::{
         Alignment, Baseline, LineHeight
-    }
+    },
+    primitives::Rectangle,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,6 +22,21 @@ pub struct Position {
     fn into(self) -> Point { Point::new(
             self.x as i32,
             self.y as i32
+    ) }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Region {
+    pub position: Position,
+    pub size: Size,
+} #[allow(dead_code)] impl Region {
+    pub fn new(position: Position, size: Size) -> Self {
+        Self { position, size }
+    }
+} #[allow(dead_code)] impl Into<Rectangle> for Region {
+    fn into(self) -> Rectangle { Rectangle::new(
+        self.position.into(),
+        self.size.into()
     ) }
 }
 
@@ -141,6 +157,8 @@ pub enum Fonts {
         Fonts::Font9x18B => FONT_9X18_BOLD,
         Fonts::Font10x20 => FONT_10X20,
     } }
+} impl Default for Fonts {
+    fn default() -> Self { Fonts::Font9x18 }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -184,20 +202,27 @@ pub enum TextLineHeight {
 }
 
 pub trait DisplayApi {
+    /// Draws the given buffer to the display without modification.
     fn draw(&mut self, buffer: &[u8]);
+    /// Draws a single character to the display at the given position with the given style.
     fn draw_char(
         &mut self, character: char, position: Position,
         text_color: Color, background_color: Option<Color>,
         font: MonoFont, underline: bool, strikethrough: bool,
         baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
     );
+    /// Draws a string to the display at the given position with the given style.
+    /// Does not wrap or scroll the text.
     fn draw_text(
         &mut self, text: &str, position: Position,
         text_color: Color, background_color: Option<Color>,
         font: MonoFont, underline: bool, strikethrough: bool,
         baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
     );
+    /// Overwrites the entire display with the given color.
     fn clear(&mut self, color: Color);
+    /// Swaps the front and back buffers, displaying the changes made since the last swap.
     fn swap(&mut self);
+    /// Returns the information about the frame buffer.
     fn get_info(&self) -> FrameBufferInfo;
 }

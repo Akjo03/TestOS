@@ -1,9 +1,10 @@
+use alloc::fmt;
 use alloc::rc::Rc;
 use core::cell::RefCell;
 
 use bootloader_api::info::FrameBufferInfo;
 
-use crate::api::display::{Colors, DisplayApi, Fonts, Size};
+use crate::api::display::{Colors, DisplayApi, Fonts};
 use crate::drivers::display::{CommonDisplayDriver, DisplayDriverManager, DisplayDriverType, DummyDisplayDriver};
 use crate::drivers::display::text::{TextDisplayDriver, TextDisplayDriverArgs};
 use crate::systems::display::{BufferedDisplay, SimpleDisplay};
@@ -15,7 +16,7 @@ pub enum DisplayMode {
     Dummy,
     Text(Fonts)
 } impl<'a> DisplayMode {
-    fn get_driver(self, info: FrameBufferInfo) -> DisplayDriverType<'a> {
+    fn get_driver(self, _info: FrameBufferInfo) -> DisplayDriverType<'a> {
         match self {
             DisplayMode::Unknown => DisplayDriverType::Unknown,
             DisplayMode::Dummy => DisplayDriverType::Dummy(
@@ -23,10 +24,17 @@ pub enum DisplayMode {
             ), DisplayMode::Text(font) => DisplayDriverType::Text(
                 TextDisplayDriver::new(),
                 TextDisplayDriverArgs::new(
-                    Rc::new(RefCell::new(font)),
-                    Size::new(info.width, info.height
+                    Rc::new(RefCell::new(font))
                 )
-            ))
+            )
+        }
+    }
+} impl fmt::Display for DisplayMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DisplayMode::Unknown => write!(f, "Unknown"),
+            DisplayMode::Dummy => write!(f, "Dummy"),
+            DisplayMode::Text(..) => write!(f, "Text")
         }
     }
 }
@@ -47,6 +55,14 @@ pub enum DisplayType {
             DisplayType::Buffered => Rc::new(RefCell::new(
                 BufferedDisplay::new(frame_buffer, frame_buffer_info)
             ))
+        }
+    }
+} impl fmt::Display for DisplayType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DisplayType::Unknown => write!(f, "Unknown"),
+            DisplayType::Simple => write!(f, "Simple"),
+            DisplayType::Buffered => write!(f, "Buffered")
         }
     }
 }
@@ -80,6 +96,18 @@ pub struct DisplayManager<'a> {
 
     pub fn get_driver(&mut self) -> &mut DisplayDriverType<'a> {
         &mut self.driver_manager.current_driver
+    }
+
+    pub fn get_display_type(&self) -> DisplayType {
+        self.display_type
+    }
+
+    pub fn get_display_mode(&self) -> DisplayMode {
+        match &self.driver_manager.current_driver {
+            DisplayDriverType::Unknown => DisplayMode::Unknown,
+            DisplayDriverType::Dummy(..) => DisplayMode::Dummy,
+            DisplayDriverType::Text(..) => DisplayMode::Text(Fonts::default())
+        }
     }
 
     pub fn clear_screen(&mut self) {
