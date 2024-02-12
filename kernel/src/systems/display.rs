@@ -105,8 +105,8 @@ pub struct BufferedDisplay<'a> {
     back_frame: BackFrame
 } impl<'a> BufferedDisplay<'a> {
     pub fn new(frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
-        let display_frame = DisplayFrame::new(frame_buffer, frame_buffer_info);
         let back_frame = BackFrame::new(frame_buffer.len(), frame_buffer_info);
+        let display_frame = DisplayFrame::new(frame_buffer, frame_buffer_info);
 
         Self { display_frame, back_frame }
     }
