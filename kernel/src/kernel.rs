@@ -1,5 +1,5 @@
 use crate::api::display::Fonts;
-use crate::drivers::display::DisplayDriverType;
+use crate::drivers::display::{CommonDisplayDriver, DisplayDriverType};
 use crate::internal::serial::{SerialLoggingLevel, SerialPortLogger};
 use crate::managers::display::{DisplayManager, DisplayMode};
 
@@ -25,13 +25,15 @@ pub struct Kernel<'a> {
         );
     }
 
-    pub fn tick(&mut self, _tick: u64) {
+    pub fn tick(&mut self, tick: u64) {
         match self.display_manager.get_driver() {
-            DisplayDriverType::Text(_driver, ..) => {},
+            DisplayDriverType::Text(driver, ..) => {
+                driver.draw_all();
+            },
             _ => panic!("Unsupported display driver!")
         }
 
-        self.running = false;
+        self.serial_logger.log(format_args!("Kernel ticked at {}.", tick), SerialLoggingLevel::Info);
     }
 
     pub fn halt(&mut self) -> ! {
