@@ -13,7 +13,7 @@ pub const INITIAL_HEAP_START: usize = 0x_1111_1111_0000;
 pub const INITIAL_HEAP_SIZE: usize = 1024 * 1024 * 1; // 1 MiB
 
 pub const HEAP_START: usize = 0x_4444_4444_0000;
-pub const HEAP_SIZE: usize = 1024 * 1024 * 16; // 16 MiB
+pub const HEAP_SIZE: usize = 1024 * 1024 * 32; // 32 MiB
 
 struct HeapManager {
     initial_heap: LockedHeap,

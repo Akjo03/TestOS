@@ -2,35 +2,34 @@ use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 use bootloader_api::info::{FrameBufferInfo, PixelFormat};
-use embedded_graphics::{
-    draw_target::DrawTarget,
-    Drawable,
-    geometry::{Dimensions, Point},
-    mono_font::{MonoFont, MonoTextStyle},
-    Pixel,
-    pixelcolor::{Rgb888, RgbColor},
-    primitives::Rectangle,
-    text::{Text, TextStyle, DecorationColor, renderer::CharacterStyle}
-};
-
+use embedded_graphics::draw_target::DrawTarget;
+use embedded_graphics::geometry::{Dimensions, Point};
+use embedded_graphics::mono_font::{MonoFont, MonoTextStyle};
+use embedded_graphics::{Drawable, Pixel};
+use embedded_graphics::pixelcolor::{Rgb888, RgbColor};
+use embedded_graphics::primitives::Rectangle;
+use embedded_graphics::text::{DecorationColor, Text, TextStyle};
+use embedded_graphics::text::renderer::CharacterStyle;
 use crate::api::display::{Color, DisplayApi, Position, TextAlignment, TextBaseline, TextLineHeight};
 
+trait DisplayContext {
+    fn swap(&mut self);
+}
+
 pub struct SimpleDisplay<'a> {
-    display_frame: DisplayFrame<'a>
+    context: SimpleDisplayContext<'a>
 } impl<'a> SimpleDisplay<'a> {
     pub fn new(frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
-        Self {
-            display_frame: DisplayFrame::new(frame_buffer, frame_buffer_info)
-        }
+        Self { context: SimpleDisplayContext::new(frame_buffer, frame_buffer_info) }
     }
-} impl<'a> DisplayApi for SimpleDisplay<'a> {
+} impl DisplayApi for SimpleDisplay<'_> {
     fn draw(&mut self, buffer: &[u8]) {
-        if buffer.len() != self.display_frame.frame_buffer.len() {
-            panic!("Buffer data does not match the expected size");
+        if buffer.len() != self.context.frame_buffer.len() {
+            panic!("Frame buffer data does not match the expected size!");
         }
 
         for (i, byte) in buffer.iter().enumerate() {
-            self.display_frame.frame_buffer[i] = *byte;
+            self.context.frame_buffer[i] = *byte;
         }
     }
 
@@ -41,7 +40,7 @@ pub struct SimpleDisplay<'a> {
         baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
     ) {
         let mut font_style = MonoTextStyle::new(&font, text_color.into());
-        font_style.set_background_color(background_color.map(|color| color.into()));
+        font_style.background_color = background_color.map(|color| color.into());
 
         if underline { font_style.set_underline_color(DecorationColor::TextColor); }
         if strikethrough { font_style.set_strikethrough_color(DecorationColor::TextColor); }
@@ -53,98 +52,12 @@ pub struct SimpleDisplay<'a> {
 
         let binding = character.to_string();
         let text = Text::with_text_style(
-            &*binding, Point::new(position.x as i32, position.y as i32), font_style, text_style
+            &*binding, Point::new(position.x as i32, position.y as i32),
+            font_style, text_style
         );
 
-        if let Err(_) = text.draw(&mut self.display_frame) {
-            panic!("Failed to draw text!");
-        }
-    }
-
-    fn draw_text(&mut self,
-                 text: &str, position: Position,
-                 text_color: Color, background_color: Option<Color>,
-                 font: MonoFont, underline: bool, strikethrough: bool,
-                 baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
-    ) {
-        let mut font_style = MonoTextStyle::new(&font, text_color.into());
-        font_style.set_background_color(background_color.map(|color| color.into()));
-
-        if underline { font_style.set_underline_color(DecorationColor::TextColor); }
-        if strikethrough { font_style.set_strikethrough_color(DecorationColor::TextColor); }
-
-        let mut text_style = TextStyle::default();
-        text_style.baseline = baseline.into();
-        text_style.alignment = alignment.into();
-        text_style.line_height = line_height.into();
-
-        let text = Text::with_text_style(
-            text, Point::new(position.x as i32, position.y as i32), font_style, text_style
-        );
-
-        if let Err(_) = text.draw(&mut self.display_frame) {
-            panic!("Failed to draw text!");
-        }
-    }
-
-    fn clear(&mut self, color: Color) {
-        for byte_offset in (0..self.display_frame.frame_buffer.len()).step_by(self.display_frame.frame_buffer_info.bytes_per_pixel) {
-            set_pixel_in_at(self.display_frame.frame_buffer_info, &mut self.display_frame.frame_buffer, byte_offset, color)
-        }
-    }
-
-    fn swap(&mut self) {}
-
-    fn get_info(&self) -> FrameBufferInfo {
-        self.display_frame.frame_buffer_info
-    }
-}
-
-pub struct BufferedDisplay<'a> {
-    display_frame: DisplayFrame<'a>,
-    back_frame: BackFrame
-} impl<'a> BufferedDisplay<'a> {
-    pub fn new(frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
-        let back_frame = BackFrame::new(frame_buffer.len(), frame_buffer_info);
-        let display_frame = DisplayFrame::new(frame_buffer, frame_buffer_info);
-
-        Self { display_frame, back_frame }
-    }
-} impl<'a> DisplayApi for BufferedDisplay<'a> {
-    fn draw(&mut self, buffer: &[u8]) {
-        if buffer.len() != self.back_frame.back_buffer.len() {
-            panic!("Buffer data does not match the expected size");
-        }
-
-        for (i, byte) in buffer.iter().enumerate() {
-            self.back_frame.back_buffer[i] = *byte;
-        }
-    }
-
-    fn draw_char(
-        &mut self, character: char, position: Position,
-        text_color: Color, background_color: Option<Color>,
-        font: MonoFont, underline: bool, strikethrough: bool, baseline:
-        TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
-    ) {
-        let mut font_style = MonoTextStyle::new(&font, text_color.into());
-        font_style.set_background_color(background_color.map(|color| color.into()));
-
-        if underline { font_style.set_underline_color(DecorationColor::TextColor); }
-        if strikethrough { font_style.set_strikethrough_color(DecorationColor::TextColor); }
-
-        let mut text_style = TextStyle::default();
-        text_style.baseline = baseline.into();
-        text_style.alignment = alignment.into();
-        text_style.line_height = line_height.into();
-
-        let binding = character.to_string();
-        let text = Text::with_text_style(
-            &*binding, Point::new(position.x as i32, position.y as i32), font_style, text_style
-        );
-
-        if let Err(_) = text.draw(&mut self.back_frame) {
-            panic!("Failed to draw text!");
+        if let Err(_) = text.draw(&mut self.context) {
+            panic!("Failed to draw character!")
         }
     }
 
@@ -155,7 +68,7 @@ pub struct BufferedDisplay<'a> {
         baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
     ) {
         let mut font_style = MonoTextStyle::new(&font, text_color.into());
-        font_style.set_background_color(background_color.map(|color| color.into()));
+        font_style.background_color = background_color.map(|color| color.into());
 
         if underline { font_style.set_underline_color(DecorationColor::TextColor); }
         if strikethrough { font_style.set_strikethrough_color(DecorationColor::TextColor); }
@@ -166,84 +79,131 @@ pub struct BufferedDisplay<'a> {
         text_style.line_height = line_height.into();
 
         let text = Text::with_text_style(
-            text, Point::new(position.x as i32, position.y as i32), font_style, text_style
+            text, Point::new(position.x as i32, position.y as i32),
+            font_style, text_style
         );
 
-        if let Err(_) = text.draw(&mut self.back_frame) {
-            panic!("Failed to draw text!");
+        if let Err(_) = text.draw(&mut self.context) {
+            panic!("Failed to draw text!")
         }
     }
 
     fn clear(&mut self, color: Color) {
-        for byte_offset in (0..self.back_frame.back_buffer.len()).step_by(self.back_frame.frame_buffer_info.bytes_per_pixel) {
-            set_pixel_in_at(self.back_frame.frame_buffer_info, &mut self.back_frame.back_buffer, byte_offset, color)
+        for byte_offset in (0..self.context.frame_buffer.len()).step_by(self.context.frame_buffer_info.bytes_per_pixel) {
+            set_pixel_in_at(self.context.frame_buffer, self.context.frame_buffer_info, byte_offset, color);
         }
     }
 
-    fn swap(&mut self) {
-        let frame_buffer_len = self.display_frame.frame_buffer.len();
-        let back_buffer_len = self.back_frame.back_buffer.len();
+    fn swap(&mut self) { self.context.swap(); }
 
-        if frame_buffer_len != back_buffer_len {
-            panic!("Frame buffer and back buffer sizes do not match!");
-        }
-
-        self.display_frame.frame_buffer.copy_from_slice(&self.back_frame.back_buffer);
-        self.back_frame.clear();
-    }
-
-    fn get_info(&self) -> FrameBufferInfo {
-        self.display_frame.frame_buffer_info
-    }
+    fn get_info(&self) -> FrameBufferInfo { self.context.frame_buffer_info }
 }
 
-struct BackFrame {
-    back_buffer: Vec<u8>,
-    frame_buffer_info: FrameBufferInfo
-} impl BackFrame {
-    pub fn new(size: usize, frame_buffer_info: FrameBufferInfo) -> Self {
-        let back_buffer = vec![0; size];
-        Self { back_buffer, frame_buffer_info }
+pub struct BufferedDisplay<'a> {
+    context: BufferedDisplayContext<'a>
+} impl<'a> BufferedDisplay<'a> {
+    pub fn new(frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
+        Self { context: BufferedDisplayContext::new(frame_buffer, frame_buffer_info) }
     }
-} impl BackFrame {
-    pub fn clear(&mut self) {
-        self.back_buffer.fill(0);
-    }
-
-} impl DrawTarget for BackFrame {
-type Color = Rgb888;
-    type Error = core::convert::Infallible;
-
-    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
-        where I: IntoIterator<Item = Pixel<Self::Color>> {
-
-        for pixel in pixels.into_iter() {
-            let Pixel(point, color) = pixel;
-            set_pixel_in(self.frame_buffer_info, &mut self.back_buffer, Position {
-                x: point.x as usize,
-                y: point.y as usize
-            }, Color {
-                red: color.r(),
-                green: color.g(),
-                blue: color.b()
-            });
+} impl DisplayApi for BufferedDisplay<'_> {
+    fn draw(&mut self, buffer: &[u8]) {
+        if buffer.len() != self.context.back_buffer.len() {
+            panic!("Buffer data does not match the expected size!");
         }
-        Ok(())
+
+        for (i, byte) in buffer.iter().enumerate() {
+            self.context.back_buffer[i] = *byte;
+            self.context.dirty_buffer[i] = true;
+        }
     }
-} impl Dimensions for BackFrame {
-    fn bounding_box(&self) -> Rectangle {
-        get_bounds(self.frame_buffer_info)
+
+    fn draw_char(
+        &mut self, character: char, position: Position,
+        text_color: Color, background_color: Option<Color>,
+        font: MonoFont, underline: bool, strikethrough: bool,
+        baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
+    ) {
+        let mut font_style = MonoTextStyle::new(&font, text_color.into());
+        font_style.background_color = background_color.map(|color| color.into());
+
+        if underline { font_style.set_underline_color(DecorationColor::TextColor); }
+        if strikethrough { font_style.set_strikethrough_color(DecorationColor::TextColor); }
+
+        let mut text_style = TextStyle::default();
+        text_style.baseline = baseline.into();
+        text_style.alignment = alignment.into();
+        text_style.line_height = line_height.into();
+
+        let binding = character.to_string();
+        let text = Text::with_text_style(
+            &*binding, Point::new(position.x as i32, position.y as i32),
+            font_style, text_style
+        );
+
+        if let Err(_) = text.draw(&mut self.context) {
+            panic!("Failed to draw character!")
+        }
     }
+
+    fn draw_text(
+        &mut self, text: &str, position: Position,
+        text_color: Color, background_color: Option<Color>,
+        font: MonoFont, underline: bool, strikethrough: bool,
+        baseline: TextBaseline, alignment: TextAlignment, line_height: TextLineHeight
+    ) {
+        let mut font_style = MonoTextStyle::new(&font, text_color.into());
+        font_style.background_color = background_color.map(|color| color.into());
+
+        if underline { font_style.set_underline_color(DecorationColor::TextColor); }
+        if strikethrough { font_style.set_strikethrough_color(DecorationColor::TextColor); }
+
+        let mut text_style = TextStyle::default();
+        text_style.baseline = baseline.into();
+        text_style.alignment = alignment.into();
+        text_style.line_height = line_height.into();
+
+        let text = Text::with_text_style(
+            text, Point::new(position.x as i32, position.y as i32),
+            font_style, text_style
+        );
+
+        if let Err(_) = text.draw(&mut self.context) {
+            panic!("Failed to draw text!")
+        }
+    }
+
+    fn clear(&mut self, color: Color) {
+        for byte_offset in (0..self.context.frame_buffer.len()).step_by(self.context.frame_buffer_info.bytes_per_pixel) {
+            set_pixel_in_at(self.context.back_buffer.as_mut_slice(), self.context.frame_buffer_info, byte_offset, color);
+            self.context.dirty_buffer[byte_offset] = true;
+        }
+    }
+
+    fn swap(&mut self) { self.context.swap(); }
+
+    fn get_info(&self) -> FrameBufferInfo { self.context.frame_buffer_info }
 }
 
-struct DisplayFrame<'a> {
+struct SimpleDisplayContext<'a> {
     frame_buffer: &'a mut [u8],
     frame_buffer_info: FrameBufferInfo
-} impl <'a> DisplayFrame<'a> {
+} impl<'a> SimpleDisplayContext<'a> {
     pub fn new(frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
         Self { frame_buffer, frame_buffer_info }
     }
-} impl<'a> DrawTarget for DisplayFrame<'a> {
+
+    fn set_pixel(&mut self, position: Position, color: Color) {
+        let byte_offset = {
+            let line_offset = position.y * self.frame_buffer_info.stride;
+            let pixel_offset = line_offset + position.x;
+            pixel_offset * self.frame_buffer_info.bytes_per_pixel
+        };
+
+        set_pixel_in_at(self.frame_buffer, self.frame_buffer_info, byte_offset, color);
+    }
+} impl DisplayContext for SimpleDisplayContext<'_> {
+    fn swap(&mut self) {}
+} impl DrawTarget for SimpleDisplayContext<'_> {
     type Color = Rgb888;
     type Error = core::convert::Infallible;
 
@@ -252,18 +212,80 @@ struct DisplayFrame<'a> {
 
         for pixel in pixels.into_iter() {
             let Pixel(point, color) = pixel;
-            set_pixel_in(self.frame_buffer_info, &mut self.frame_buffer, Position {
-                x: point.x as usize,
-                y: point.y as usize
-            }, Color {
-                red: color.r(),
-                green: color.g(),
-                blue: color.b()
-            });
+            self.set_pixel(Position::new(
+                point.x as usize,
+                point.y as usize
+            ), Color::new(
+                color.r(),
+                color.g(),
+                color.b()
+            ));
         }
+
         Ok(())
     }
-} impl<'a> Dimensions for DisplayFrame<'a> {
+} impl Dimensions for SimpleDisplayContext<'_> {
+    fn bounding_box(&self) -> Rectangle {
+        get_bounds(self.frame_buffer_info)
+    }
+}
+
+struct BufferedDisplayContext<'a> {
+    frame_buffer: &'a mut [u8],
+    back_buffer: Vec<u8>,
+    dirty_buffer: Vec<bool>,
+    frame_buffer_info: FrameBufferInfo
+} impl<'a> BufferedDisplayContext<'a> {
+    pub fn new(frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
+        let back_buffer = vec![0; frame_buffer.len()];
+        let dirty_buffer = vec![false; frame_buffer.len()];
+
+        Self { frame_buffer, back_buffer, dirty_buffer, frame_buffer_info }
+    }
+
+    fn set_pixel(&mut self, position: Position, color: Color) {
+        let byte_offset = {
+            let line_offset = position.y * self.frame_buffer_info.stride;
+            let pixel_offset = line_offset + position.x;
+            pixel_offset * self.frame_buffer_info.bytes_per_pixel
+        };
+
+        set_pixel_in_at(self.back_buffer.as_mut_slice(), self.frame_buffer_info, byte_offset, color);
+        self.dirty_buffer[byte_offset] = true;
+    }
+} impl DisplayContext for BufferedDisplayContext<'_> {
+    fn swap(&mut self) {
+        let frame_buffer_len = self.frame_buffer.len();
+        let back_buffer_len = self.back_buffer.len();
+
+        if frame_buffer_len != back_buffer_len {
+            panic!("Frame buffer and back buffer sizes do not match!");
+        }
+
+        self.frame_buffer.copy_from_slice(&self.back_buffer);
+    }
+} impl DrawTarget for BufferedDisplayContext<'_> {
+    type Color = Rgb888;
+    type Error = core::convert::Infallible;
+
+    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+        where I: IntoIterator<Item = Pixel<Self::Color>> {
+
+        for pixel in pixels.into_iter() {
+            let Pixel(point, color) = pixel;
+            self.set_pixel(Position::new(
+                point.x as usize,
+                point.y as usize
+            ), Color::new(
+                color.r(),
+                color.g(),
+                color.b()
+            ));
+        }
+
+        Ok(())
+    }
+} impl Dimensions for BufferedDisplayContext<'_> {
     fn bounding_box(&self) -> Rectangle {
         get_bounds(self.frame_buffer_info)
     }
@@ -279,20 +301,10 @@ fn get_bounds(info: FrameBufferInfo) -> Rectangle {
     )
 }
 
-fn set_pixel_in(info: FrameBufferInfo, frame_buffer: &mut [u8], position: Position, color: Color) {
-    let byte_offset = {
-        let line_offset = position.y * info.stride;
-        let pixel_offset = line_offset + position.x;
-        pixel_offset * info.bytes_per_pixel
-    };
+fn set_pixel_in_at(frame_buffer: &mut [u8], frame_buffer_info: FrameBufferInfo, index: usize, color: Color) {
+    let pixel_buffer = &mut frame_buffer[index..index + frame_buffer_info.bytes_per_pixel];
 
-    set_pixel_in_at(info, frame_buffer, byte_offset, color);
-}
-
-fn set_pixel_in_at(info: FrameBufferInfo, frame_buffer: &mut [u8], byte_offset: usize, color: Color) {
-    let pixel_buffer = &mut frame_buffer[byte_offset..byte_offset + info.bytes_per_pixel];
-
-    match info.pixel_format {
+    match frame_buffer_info.pixel_format {
         PixelFormat::Rgb => {
             pixel_buffer[0] = color.red;
             pixel_buffer[1] = color.green;
