@@ -36,7 +36,7 @@ pub struct Kernel<'a> {
             _ => panic!("Unsupported display driver!")
         }
 
-        self.serial_logger.log(format_args!("Kernel ticked at {}.", tick), SerialLoggingLevel::Info);
+        if tick == 10000 { self.running = false; }
     }
 
     pub fn halt(&mut self) -> ! {
