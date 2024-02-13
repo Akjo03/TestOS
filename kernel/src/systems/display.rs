@@ -113,7 +113,6 @@ pub struct BufferedDisplay<'a> {
 
         for (i, byte) in buffer.iter().enumerate() {
             self.context.back_buffer[i] = *byte;
-            self.context.dirty_buffer[i] = true;
         }
     }
 
@@ -175,7 +174,6 @@ pub struct BufferedDisplay<'a> {
     fn clear(&mut self, color: Color) {
         for byte_offset in (0..self.context.frame_buffer.len()).step_by(self.context.frame_buffer_info.bytes_per_pixel) {
             set_pixel_in_at(self.context.back_buffer.as_mut_slice(), self.context.frame_buffer_info, byte_offset, color);
-            self.context.dirty_buffer[byte_offset] = true;
         }
     }
 
@@ -233,14 +231,12 @@ struct SimpleDisplayContext<'a> {
 struct BufferedDisplayContext<'a> {
     frame_buffer: &'a mut [u8],
     back_buffer: Vec<u8>,
-    dirty_buffer: Vec<bool>,
     frame_buffer_info: FrameBufferInfo
 } impl<'a> BufferedDisplayContext<'a> {
     pub fn new(frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
         let back_buffer = vec![0; frame_buffer.len()];
-        let dirty_buffer = vec![false; frame_buffer.len()];
 
-        Self { frame_buffer, back_buffer, dirty_buffer, frame_buffer_info }
+        Self { frame_buffer, back_buffer, frame_buffer_info }
     }
 
     fn set_pixel(&mut self, position: Position, color: Color) {
@@ -251,7 +247,6 @@ struct BufferedDisplayContext<'a> {
         };
 
         set_pixel_in_at(self.back_buffer.as_mut_slice(), self.frame_buffer_info, byte_offset, color);
-        self.dirty_buffer[byte_offset] = true;
     }
 } impl DisplayContext for BufferedDisplayContext<'_> {
     fn swap(&mut self) {
