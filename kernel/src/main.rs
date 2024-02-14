@@ -52,6 +52,12 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
             ), SerialLoggingLevel::Info);
         } else { panic!("Frame buffer not found!") }
 
+        internal::gdt::init();
+        serial_port.log(format_args!("Initialized GDT."), SerialLoggingLevel::Info);
+
+        internal::idt::init();
+        serial_port.log(format_args!("Initialized IDT."), SerialLoggingLevel::Info);
+
         let physical_memory_offset = boot_info.physical_memory_offset.as_ref()
             .expect("Physical memory offset not found!");
         let phys_mem_offset = VirtAddr::new(*physical_memory_offset);
