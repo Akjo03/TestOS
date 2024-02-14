@@ -6,18 +6,17 @@ use std::{
 fn main() {
     let mut qemu = Command::new(
         format!("{}/tools/qemu/qemu-system-x86_64",
-        env::var("CARGO_MANIFEST_DIR").unwrap())
+                env::var("CARGO_MANIFEST_DIR").unwrap())
     );
 
     qemu.arg("-drive");
     qemu.arg(format!("format=raw,file={}", env!("BIOS_IMAGE")));
 
     qemu.arg("-serial").arg("stdio");
-    qemu.arg("-S");
 
     match env::consts::OS {
         "windows" => {
-            qemu.arg("-accel").arg("whpx");
+            qemu.arg("-accel").arg("whpx,kernel-irqchip=off");
         }, "linux" => {
             qemu.arg("-accel").arg("kvm");
         }, "macos" => {

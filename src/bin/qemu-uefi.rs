@@ -14,19 +14,19 @@ fn main() {
     qemu.arg("-bios").arg(ovmf_prebuilt::ovmf_pure_efi());
 
     qemu.arg("-serial").arg("stdio");
-    qemu.arg("-S");
 
     match env::consts::OS {
         "windows" => {
-        qemu.arg("-accel").arg("whpx");
+            qemu.arg("-accel").arg("whpx,kernel-irqchip=off");
         }, "linux" => {
-        qemu.arg("-accel").arg("kvm");
+            qemu.arg("-accel").arg("kvm");
         }, "macos" => {
-        qemu.arg("-accel").arg("hvf");
+            qemu.arg("-accel").arg("hvf");
         }, _ => {}
     }
 
     qemu.arg("-device").arg(format!("VGA,{}", env::var("VGA_OPTIONS").unwrap()));
+    qemu.arg("-cpu").arg("qemu64");
 
     let exit_status = qemu.status().unwrap();
     process::exit(exit_status.code().unwrap_or(-1));
