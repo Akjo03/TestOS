@@ -74,6 +74,11 @@ struct ColorCode(u8); impl ColorCode {
     pub fn background(&self) -> TextColor {
         TextColor::from_u8((self.0 >> 4) & 0xF).unwrap()
     }
+
+    #[inline]
+    pub fn invert(&self) -> Self {
+        Self((self.0 >> 4) | (self.0 << 4))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -168,7 +173,8 @@ pub struct TextDisplayDriver<'a> {
     text_color: TextColor,
     background_color: TextColor,
     underline: bool,
-    strikethrough: bool
+    strikethrough: bool,
+    blink: bool
 } #[allow(dead_code)] impl TextDisplayDriver<'_> {
     /// Initializes the text display driver. Should only get called once by the display driver manager.
     pub fn init(&mut self, args: &mut TextDisplayDriverArgs) {
@@ -348,6 +354,11 @@ pub struct TextDisplayDriver<'a> {
                 }
             }
         }
+    }
+
+    /// Toggles the blink attribute for the text cursor.
+    pub fn blink(&mut self) {
+        self.blink = !self.blink;
     }
 
 
@@ -555,7 +566,8 @@ pub struct TextDisplayDriver<'a> {
         text_color: TextColor::White,
         background_color: TextColor::Black,
         underline: false,
-        strikethrough: false
+        strikethrough: false,
+        blink: false
     } }
 
     fn draw_all(&mut self) {
@@ -567,6 +579,8 @@ pub struct TextDisplayDriver<'a> {
             let background_color: Color = segment.background_color.into();
             (segment.text.clone(), screen_position, text_color, background_color, segment.underline, segment.strikethrough)
         }).collect();
+
+        let cursor_position = self.map_position(self.text_cursor);
 
         let display_opt = self.display.as_mut();
         let font_opt = self.font.as_ref();
@@ -580,6 +594,24 @@ pub struct TextDisplayDriver<'a> {
                     &text, screen_position,
                     text_color, Some(background_color),
                     font, underline, strikethrough,
+                    TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
+                );
+            }
+
+            if self.blink {
+                let color_code = ColorCode::new(self.text_color, self.background_color);
+
+                display.draw_char(
+                    ' ', cursor_position,
+                    color_code.invert().foreground().into(), Some(color_code.invert().background().into()),
+                    font, false, false,
+                    TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
+                );
+            } else {
+                display.draw_char(
+                    ' ', cursor_position,
+                    self.text_color.into(), Some(self.background_color.into()),
+                    font, false, false,
                     TextBaseline::Top, TextAlignment::Left, TextLineHeight::Full
                 );
             }
