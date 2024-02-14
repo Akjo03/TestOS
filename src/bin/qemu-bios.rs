@@ -13,8 +13,19 @@ fn main() {
     qemu.arg(format!("format=raw,file={}", env!("BIOS_IMAGE")));
 
     qemu.arg("-serial").arg("stdio");
-    qemu.arg("-gdb").arg("tcp::1234");
     qemu.arg("-S");
+
+    match env::consts::OS {
+        "windows" => {
+            qemu.arg("-accel").arg("whpx");
+        }, "linux" => {
+            qemu.arg("-accel").arg("kvm");
+        }, "macos" => {
+            qemu.arg("-accel").arg("hvf");
+        }, _ => {}
+    }
+
+    qemu.arg("-device").arg("VGA,vgamem_mb=64,xres=1920,yres=1080");
 
     let exit_status = qemu.status().unwrap();
     process::exit(exit_status.code().unwrap_or(-1));
