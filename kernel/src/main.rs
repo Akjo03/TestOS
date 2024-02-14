@@ -50,7 +50,7 @@ fn kernel_main(boot_info: &'static mut bootloader_api::BootInfo) -> ! {
             serial_port.log(format_args!("Frame buffer initialized with resolution {}x{} at {}bpp.",
                 info.width, info.height, info.bytes_per_pixel * 8
             ), SerialLoggingLevel::Info);
-        } else { loop {} }
+        } else { panic!("Frame buffer not found!") }
 
         let physical_memory_offset = boot_info.physical_memory_offset.as_ref()
             .expect("Physical memory offset not found!");
