@@ -26,7 +26,7 @@ fn main() {
         }, _ => {}
     }
 
-    qemu.arg("-device").arg("VGA,vgamem_mb=64,xres=1920,yres=1080");
+    qemu.arg("-device").arg(format!("VGA,{}", env::var("CARGO_MANIFEST_DIR").unwrap()));
 
     let exit_status = qemu.status().unwrap();
     process::exit(exit_status.code().unwrap_or(-1));

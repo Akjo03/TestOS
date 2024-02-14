@@ -20,8 +20,10 @@ panic = "abort"
 debug = true
 opt-level = 3
 
-
 [profile.release]
 panic = "abort"
 debug = true
 opt-level = 3
+
+[env]
+VGA_OPTIONS = "vgamem_mb=64,xres=1920,yres=1080"
