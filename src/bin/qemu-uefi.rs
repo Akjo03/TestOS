@@ -15,12 +15,15 @@ fn main() {
 
     qemu.arg("-serial").arg("stdio");
 
-    match env::consts::OS {
-        "windows" => {
+    let accel_enabled = env::var("ACCEL_ENABLED").unwrap_or("true".to_string())
+        .parse::<bool>().unwrap();
+
+    match (env::consts::OS, accel_enabled) {
+        ("windows", true) => {
             qemu.arg("-accel").arg("whpx,kernel-irqchip=off");
-        }, "linux" => {
+        }, ("linux", true) => {
             qemu.arg("-accel").arg("kvm");
-        }, "macos" => {
+        }, ("macos", true) => {
             qemu.arg("-accel").arg("hvf");
         }, _ => {}
     }
