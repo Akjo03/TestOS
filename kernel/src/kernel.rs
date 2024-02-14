@@ -29,7 +29,7 @@ pub struct Kernel<'a> {
     pub fn tick(&mut self, tick: u64) {
         match self.display_manager.get_driver() {
             DisplayDriverType::Text(driver, ..) => {
-                // driver.clear_buffer();
+                driver.clear_buffer();
                 driver.write_string(tick.to_string().as_str());
             },
             _ => panic!("Unsupported display driver!")
