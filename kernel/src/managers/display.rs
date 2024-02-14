@@ -72,6 +72,7 @@ pub struct DisplayManager<'a> {
     display_type: DisplayType,
     driver_manager: DisplayDriverManager<'a>
 } #[allow(dead_code)] impl<'a> DisplayManager<'a> {
+    /// Creates a new display manager. Be careful as multiple display managers will overwrite each other.
     pub fn new(display_type: DisplayType, frame_buffer: &'a mut [u8], frame_buffer_info: FrameBufferInfo) -> Self {
         let display = display_type.new(frame_buffer, frame_buffer_info);
         let driver_manager = DisplayDriverManager::new();
@@ -79,6 +80,7 @@ pub struct DisplayManager<'a> {
         Self { display, display_type, driver_manager }
     }
 
+    /// Sets the display mode. This will in turn also set the driver for the display.
     pub fn set_mode(&mut self, display_mode: DisplayMode) {
         let driver = display_mode.get_driver(self.display.borrow().get_info());
 
@@ -94,14 +96,18 @@ pub struct DisplayManager<'a> {
         self.driver_manager.set_driver(driver, self.display.clone());
     }
 
+    /// Returns the current driver type, which can be used to get the actual driver.
     pub fn get_driver(&mut self) -> &mut DisplayDriverType<'a> {
         &mut self.driver_manager.current_driver
     }
 
+    /// Returns the current display type.
     pub fn get_display_type(&self) -> DisplayType {
         self.display_type
     }
 
+    /// Returns the current display mode.
+    /// Corresponds directly to the current driver type.
     pub fn get_display_mode(&self) -> DisplayMode {
         match &self.driver_manager.current_driver {
             DisplayDriverType::Unknown => DisplayMode::Unknown,
@@ -110,10 +116,12 @@ pub struct DisplayManager<'a> {
         }
     }
 
+    /// Clears the screen.
     pub fn clear_screen(&mut self) {
         self.driver_manager.clear(Colors::Black.into())
     }
 
+    /// Draws all the changes to the screen using the current driver.
     pub fn draw_all(&mut self) {
         self.driver_manager.draw_all()
     }

@@ -71,9 +71,12 @@ trait DisplayDriver<'a> {
 
 pub trait CommonDisplayDriver<'a> {
     fn new() -> Self;
+    /// Draws all changes to the display.
     fn draw_all(&mut self);
 
+    /// Clears the display to a specific color.
     fn clear(&mut self, color: Color);
+    /// Returns the size of the display.
     fn get_size(&self) -> Size;
 }
 

@@ -170,11 +170,13 @@ pub struct TextDisplayDriver<'a> {
     underline: bool,
     strikethrough: bool
 } #[allow(dead_code)] impl TextDisplayDriver<'_> {
+    /// Initializes the text display driver. Should only get called once by the display driver manager.
     pub fn init(&mut self, args: &mut TextDisplayDriverArgs) {
         self.font = Some(args.font.borrow().to_owned());
     }
 
 
+    /// Writes a character to the text buffer.
     pub fn write_char(&mut self, character: char) {
         match character {
             '\n' => self.new_line(),
@@ -190,54 +192,64 @@ pub struct TextDisplayDriver<'a> {
         }
     }
 
+    /// Writes a string to the text buffer.
     pub fn write_string(&mut self, text: &str) {
         for character in text.chars() {
             self.write_char(character);
         }
     }
 
+    /// Writes a string to the text buffer and moves the cursor to the next line.
     pub fn write_line(&mut self, text: &str) {
         self.write_string(text);
         self.new_line();
     }
 
+    /// Moves the cursor to the next line.
     pub fn new_line(&mut self) {
         self.move_cursor(Position::new(0, self.text_cursor.y + 1));
     }
 
 
+    /// Sets the text color for incoming text.
     #[inline]
     pub fn set_text_color(&mut self, color: TextColor) {
         self.text_color = color;
     }
 
+    /// Sets the background color for incoming text.
     #[inline]
     pub fn set_background_color(&mut self, color: TextColor) {
         self.background_color = color;
     }
 
+    /// Sets the underline attribute for incoming text.
     #[inline]
     pub fn set_underline(&mut self, underline: bool) {
         self.underline = underline;
     }
 
+    /// Sets the strikethrough attribute for incoming text.
     #[inline]
     pub fn set_strikethrough(&mut self, strikethrough: bool) {
         self.strikethrough = strikethrough;
     }
 
 
+    /// Moves the cursor to a specific position.
     #[inline]
     pub fn move_cursor(&mut self, position: Position) {
         self.text_cursor = position;
     }
 
+    /// Retrieves the current cursor position.
     #[inline]
     pub fn get_cursor_position(&self) -> Position {
         self.text_cursor
     }
 
 
+    /// Clears a specific cell in the text buffer.
     pub fn clear_cell(&mut self, row: usize, col: usize) {
         let index = row * BUFFER_WIDTH + col;
         self.text_buffer[index] = ScreenChar::new(
@@ -248,6 +260,7 @@ pub struct TextDisplayDriver<'a> {
         self.dirty_buffer[index] = true;
     }
 
+    /// Clears the entire text buffer.
     pub fn clear_buffer(&mut self) {
         self.text_buffer.fill(ScreenChar::new(
             ' ',
@@ -258,6 +271,7 @@ pub struct TextDisplayDriver<'a> {
     }
 
 
+    /// Fills the entire text buffer with a specific character.
     pub fn fill(&mut self, character: char) {
         let screen_char = ScreenChar::new(
             character,
@@ -274,6 +288,7 @@ pub struct TextDisplayDriver<'a> {
         }
     }
 
+    /// Fills a specific region in the text buffer with a specific character.
     pub fn fill_region(&mut self, region: Region, character: char) {
         let screen_char = ScreenChar::new(
             character,
@@ -291,6 +306,7 @@ pub struct TextDisplayDriver<'a> {
     }
 
 
+    /// Scrolls the text buffer by a specific amount of lines in a specific direction.
     pub fn scroll(&mut self, lines: usize, direction: ScrollDirection) {
         if lines == 0 { return; }
 
@@ -335,15 +351,21 @@ pub struct TextDisplayDriver<'a> {
     }
 
 
+    /// Initializes the whole text buffer to be redrawn on the next draw call.
     pub fn init_redraw(&mut self) {
         self.dirty_buffer.fill(true);
     }
 
+    /// Validates a specific position in the text buffer.
+    ///
+    /// Returns a tuple with two booleans, the first one indicating if the x position is valid
+    /// and the second one indicating if the y position is valid.
     #[inline]
     pub fn validate_position(&mut self, position: Position) -> (bool, bool) {
         (position.x < BUFFER_WIDTH, position.y < BUFFER_HEIGHT)
     }
 
+    /// Validates a specific region in the text buffer.
     #[inline]
     pub fn validate_region(&mut self, region: Region) -> bool {
         let (x_valid, y_valid) = self.validate_position(region.position);
@@ -466,7 +488,7 @@ pub struct TextDisplayDriver<'a> {
         segments
     }
 
-    pub fn get_dirty_regions(&mut self) -> Vec<Region> {
+    fn get_dirty_regions(&mut self) -> Vec<Region> {
         let mut regions = Vec::new();
         let mut visited = [false; BUFFER_WIDTH * BUFFER_HEIGHT];
 

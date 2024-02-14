@@ -1,6 +1,6 @@
 use alloc::string::ToString;
 use crate::api::display::Fonts;
-use crate::drivers::display::{CommonDisplayDriver, DisplayDriverType};
+use crate::drivers::display::DisplayDriverType;
 use crate::internal::serial::{SerialLoggingLevel, SerialPortLogger};
 use crate::managers::display::{DisplayManager, DisplayMode};
 
@@ -29,12 +29,12 @@ pub struct Kernel<'a> {
     pub fn tick(&mut self, tick: u64) {
         match self.display_manager.get_driver() {
             DisplayDriverType::Text(driver, ..) => {
+                // driver.clear_buffer();
                 driver.write_string(tick.to_string().as_str());
-                driver.draw_all();
-                driver.clear_buffer();
             },
             _ => panic!("Unsupported display driver!")
         }
+        self.display_manager.draw_all();
 
         if tick == 10000 { self.running = false; }
     }
